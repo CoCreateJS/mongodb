@@ -1,3 +1,10 @@
+## [1.22.1](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.22.0...v1.22.1) (2025-04-30)
+
+
+### Bug Fixes
+
+* webpack.config and devdependencies ([a3e4329](https://github.com/CoCreate-app/CoCreate-mongodb/commit/a3e4329af10c4532a52caf7dc8ee600fbe7b7950))
+
 # [1.22.0](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.21.1...v1.22.0) (2024-12-19)
 
 
