@@ -1,3 +1,10 @@
+## [1.22.2](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.22.1...v1.22.2) (2025-05-01)
+
+
+### Bug Fixes
+
+* update [@cocreate](https://github.com/cocreate) dependencies ([d2370be](https://github.com/CoCreate-app/CoCreate-mongodb/commit/d2370be6b22d7f9c3732f5de406672c6fd05bf46))
+
 ## [1.22.1](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.22.0...v1.22.1) (2025-04-30)
 
 
