@@ -45,7 +45,7 @@
   },
   "main": "./src/index.js",
   "dependencies": {
-    "@cocreate/utils": "^1.34.1",
+    "@cocreate/utils": "^1.39.0",
     "mongodb": "^4.12.1"
   }
 }
