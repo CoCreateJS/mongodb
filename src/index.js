@@ -371,19 +371,20 @@ function object(method, data) {
 
 						let projections = {},
 							projection = {},
-							update = {},
+							globalUpdate = {},
 							options = {};
 
 						if (data.$filter && data.$filter.key)
 							projection = data.$filter.key;
 
 						if (method === "update")
-							createUpdate(update, options, data, true);
+							createUpdate(globalUpdate, options, data, true);
 
 						for (let i = 0; i < data[type].length; i++) {
 							let $storage = data[type][i].$storage || [];
 							let $database = data[type][i].$database || [];
 							let $array = data[type][i].$array || [];
+							let update = {...globalUpdate};
 
 							if (!Array.isArray($storage))
 								$storage = [data[type][i].$storage];
@@ -558,6 +559,7 @@ function object(method, data) {
 											);
 											delete update["$unset"];
 										}
+
 										result = await arrayObj.updateOne(
 											query,
 											update,
