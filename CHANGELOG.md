@@ -1,3 +1,12 @@
+## [1.22.3](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.22.2...v1.22.3) (2026-07-11)
+
+
+### Bug Fixes
+
+* removed post install ([8358dbc](https://github.com/CoCreate-app/CoCreate-mongodb/commit/8358dbc2f660b954288dbb54def5c0ea19acef8f))
+* semantic version handling. Reorganize .gitignore for improved clarity and structure ([913b45a](https://github.com/CoCreate-app/CoCreate-mongodb/commit/913b45a0614c4f436ad31d66cee7fd0b510fb9ce))
+* update variable naming for clarity in object method ([b7915ff](https://github.com/CoCreate-app/CoCreate-mongodb/commit/b7915ff8a1e06d8a73205caee74ab6acb5754524))
+
 ## [1.22.2](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.22.1...v1.22.2) (2025-05-01)
 
 
