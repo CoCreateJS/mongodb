@@ -1,3 +1,10 @@
+## [1.22.4](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.22.3...v1.22.4) (2026-07-14)
+
+
+### Bug Fixes
+
+* update module export to ES6 syntax in release.config.js ([2a751b5](https://github.com/CoCreate-app/CoCreate-mongodb/commit/2a751b5179445e278efdc1e836809acb4eefb6e0))
+
 ## [1.22.3](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.22.2...v1.22.3) (2026-07-11)
 
 
