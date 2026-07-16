@@ -1,11 +1,13 @@
-const { MongoClient, ObjectId } = require("mongodb");
-const {
-	dotNotationToObject,
-	queryData,
-	searchData,
-	sortData,
-	isValidDate
-} = require("@cocreate/utils");
+import { MongoClient, ObjectId } from "mongodb";
+
+import {
+    dotNotationToObject,
+    queryData,
+    searchData,
+    sortData,
+    isValidDate
+} from "@cocreate/utils";
+
 const clients = new Map();
 const organizations = {};
 
@@ -1200,4 +1202,4 @@ function errorHandler(data, error, database, array) {
 	}
 }
 
-module.exports = { send };
+export default { send };
