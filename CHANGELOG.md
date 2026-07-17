@@ -1,3 +1,10 @@
+## [1.23.1](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.23.0...v1.23.1) (2026-07-17)
+
+
+### Bug Fixes
+
+* update mongodb dependency to version 7.5.0 ([80705f2](https://github.com/CoCreate-app/CoCreate-mongodb/commit/80705f23a38cef276dc3b4e8548339d7ef46075a))
+
 # [1.23.0](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.22.4...v1.23.0) (2026-07-17)
 
 
