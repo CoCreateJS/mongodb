@@ -829,16 +829,16 @@ function replaceArray(data = {}) {
 
 function createData(data, array, type, dataTransferedIn, dataTransferedOut) {
 	if (dataTransferedIn) {
-		process.emit("setBandwidth", {
-			type: "in",
+		process.emit("usage", {
+			type: "ingress",
 			data: dataTransferedIn,
 			organization_id: data.organization_id
 		});
 	}
 
 	if (dataTransferedOut) {
-		process.emit("setBandwidth", {
-			type: "out",
+		process.emit("usage", {
+			type: "egress",
 			data: dataTransferedOut,
 			organization_id: data.organization_id
 		});
