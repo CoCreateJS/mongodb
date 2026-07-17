@@ -1,3 +1,10 @@
+# [1.23.0](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.22.4...v1.23.0) (2026-07-17)
+
+
+### Features
+
+* update automated workflow and release configuration for improved semantic release handling ([ebc23d7](https://github.com/CoCreate-app/CoCreate-mongodb/commit/ebc23d76040716584fab8880487259c37ad909cf))
+
 ## [1.22.4](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.22.3...v1.22.4) (2026-07-14)
 
 
