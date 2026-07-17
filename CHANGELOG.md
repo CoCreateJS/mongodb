@@ -1,3 +1,10 @@
+# [1.24.0](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.23.1...v1.24.0) (2026-07-17)
+
+
+### Features
+
+* streamline database and array operations with async/await and improved error handling ([33475ea](https://github.com/CoCreate-app/CoCreate-mongodb/commit/33475eac9fb6444a91fd1a9386976abf09dde7f0))
+
 ## [1.23.1](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.23.0...v1.23.1) (2026-07-17)
 
 
