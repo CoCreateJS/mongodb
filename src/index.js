@@ -18,10 +18,7 @@ async function dbClient(data) {
 		try {
 			if (!organizations[data.organization_id][data.storageUrl])
 				organizations[data.organization_id][data.storageUrl] =
-					MongoClient.connect(data.storageUrl, {
-						useNewUrlParser: true,
-						useUnifiedTopology: true
-					});
+					MongoClient.connect(data.storageUrl);
 
 			organizations[data.organization_id][data.storageUrl] =
 				await organizations[data.organization_id][data.storageUrl];
@@ -62,48 +59,56 @@ function database(method, data) {
 					// TODO: support if a database name is defined then return the database details and stats
 					// else apply filter and return dbs for which each should have stats and details
 					// if (data.database) {
-					//     const db = client.db(data.organization_id)
-					//     const stats = await db.stats()
-					// }
+				//     const db = client.db(data.organization_id)
+				//     const stats = await db.stats()
+				// }
 
-					// List all the available databases
-					db.listDatabases(function (err, dbs) {
-						dataTransferedIn += getBytes(dbs);
+				// List all the available databases
+				try {
+					const dbs = await db.listDatabases();
+					dataTransferedIn += getBytes(dbs);
 
-						for (let database of dbs.databases) {
-							if (data.$filter && data.$filter.query) {
-								let isFilter = queryData(
-									database,
-									data.$filter.query
-								);
-								if (isFilter)
-									databaseArray.push({
-										database,
-										storage: data.storageName
-									});
-							} else
+					for (let database of dbs.databases) {
+						if (data.$filter && data.$filter.query) {
+							let isFilter = queryData(
+								database,
+								data.$filter.query
+							);
+							if (isFilter)
 								databaseArray.push({
 									database,
 									storage: data.storageName
 								});
-						}
+						} else
+							databaseArray.push({
+								database,
+								storage: data.storageName
+							});
+					}
 
-						resolve(createData(data, databaseArray, type));
-					});
+					resolve(createData(data, databaseArray, type));
+				} catch (error) {
+					errorHandler(data, error);
+					resolve(data);
 				}
-				if (method == "delete") {
-					const db = client.db(data.database);
-					db.dropDatabase().then((restult) => {
-						dataTransferedIn += getBytes(restult);
-						resolve(restult);
-					});
-				}
-			} catch (error) {
-				errorHandler(data, error);
-				console.log(method, "error", error);
-				resolve(data);
 			}
-		},
+			if (method == "delete") {
+				const db = client.db(data.database);
+				try {
+					const result = await db.dropDatabase();
+					dataTransferedIn += getBytes(result);
+					resolve(result);
+				} catch(error) {
+					errorHandler(data, error);
+					resolve(data);
+				}
+			}
+		} catch (error) {
+			errorHandler(data, error);
+			console.log(method, "error", error);
+			resolve(data);
+		}
+	},
 		(error) => {
 			errorHandler(data, error);
 		}
@@ -120,23 +125,21 @@ function array(method, data) {
 
 			try {
 				const client = await dbClient(data);
-				if (!client || client.status === false) return data;
+				if (!client || client.status === false) return resolve(data);
 
 				if (data.request) data.array = data.request;
 
 				let databases = data.database;
 				if (!Array.isArray(databases)) databases = [databases];
 
-				let databasesLength = databases.length;
 				for (let database of databases) {
 					const db = client.db(database);
 
 					if (method == "read") {
 						let { query, sort } = await createFilter(data);
 
-						db.listCollections().toArray(function (error, result) {
-							if (error) errorHandler(data, error, database);
-
+						try {
+							const result = await db.listCollections().toArray();
 							if (result) {
 								dataTransferedIn += getBytes(result);
 
@@ -160,19 +163,9 @@ function array(method, data) {
 										});
 								}
 							}
-
-							databasesLength -= 1;
-							if (!databasesLength) {
-								data = createData(
-									data,
-									arrayArray,
-									type,
-									dataTransferedIn,
-									dataTransferedOut
-								);
-								resolve(data);
-							}
-						});
+						} catch (error) {
+							errorHandler(data, error, database);
+						}
 					} else {
 						let arrays;
 						let value;
@@ -182,46 +175,22 @@ function array(method, data) {
 
 						if (!Array.isArray(arrays)) arrays = [arrays];
 
-						let arraysLength = arrays.length;
 						for (let array of arrays) {
 							if (method == "create") {
 								dataTransferedOut += getBytes(array);
-								db.createCollection(
-									array,
-									function (error, result) {
-										if (error)
-											errorHandler(
-												data,
-												error,
-												database,
-												array
-											);
-
-										if (result) {
-											dataTransferedIn +=
-												getBytes(result);
-											arrayArray.push({
-												name: array,
-												database,
-												storage: data.storageName
-											});
-										}
-
-										arraysLength -= 1;
-										if (!arraysLength) databasesLength -= 1;
-
-										if (!databasesLength && !arraysLength) {
-											data = createData(
-												data,
-												arrayArray,
-												type,
-												dataTransferedIn,
-												dataTransferedOut
-											);
-											resolve(data);
-										}
+								try {
+									const result = await db.createCollection(array);
+									if (result) {
+										dataTransferedIn += getBytes(result);
+										arrayArray.push({
+											name: array,
+											database,
+											storage: data.storageName
+										});
 									}
-								);
+								} catch (error) {
+									errorHandler(data, error, database, array);
+								}
 							} else {
 								if (method == "update") {
 									[array, value] = array;
@@ -230,96 +199,56 @@ function array(method, data) {
 								const arrayObj = db.collection(array);
 
 								if (method == "update") {
-									dataTransferedOut += getBytes(result);
-									arrayObj.rename(
-										value,
-										function (error, result) {
-											if (error)
-												errorHandler(
-													data,
-													error,
-													database,
-													array
-												);
-
-											if (result) {
-												dataTransferedIn +=
-													getBytes(result);
-												arrayArray.push({
-													name: value,
-													oldName: array,
-													database,
-													storage: data.storageName
-												});
-											}
-											arraysLength -= 1;
-											if (!arraysLength)
-												databasesLength -= 1;
-
-											if (
-												!databasesLength &&
-												!arraysLength
-											) {
-												data = createData(
-													data,
-													arrayArray,
-													type,
-													dataTransferedIn,
-													dataTransferedOut
-												);
-												resolve(data);
-											}
+									dataTransferedOut += getBytes({ rename: value });
+									try {
+										const result = await arrayObj.rename(value);
+										if (result) {
+											dataTransferedIn += getBytes(result);
+											arrayArray.push({
+												name: value,
+												oldName: array,
+												database,
+												storage: data.storageName
+											});
 										}
-									);
+									} catch (error) {
+										errorHandler(data, error, database, array);
+									}
 								}
 
 								if (method == "delete") {
-									arrayObj.drop(function (error, result) {
-										if (error)
-											errorHandler(
-												data,
-												error,
-												database,
-												array
-											);
-
+									try {
+										const result = await arrayObj.drop();
 										if (result) {
-											dataTransferedOut +=
-												getBytes(result);
+											dataTransferedOut += getBytes(result);
 											arrayArray.push({
 												name: array,
 												database,
 												storage: data.storageName
 											});
 										}
-
-										arraysLength -= 1;
-										if (!arraysLength) databasesLength -= 1;
-
-										if (!databasesLength && !arraysLength) {
-											data = createData(
-												data,
-												arrayArray,
-												type,
-												dataTransferedIn,
-												dataTransferedOut
-											);
-											resolve(data);
-										}
-									});
+									} catch (error) {
+										errorHandler(data, error, database, array);
+									}
 								}
 							}
 						}
 					}
 				}
+
+				data = createData(
+					data,
+					arrayArray,
+					type,
+					dataTransferedIn,
+					dataTransferedOut
+				);
+				resolve(data);
 			} catch (error) {
 				errorHandler(data, error);
 				console.log(method, "error", error);
 				resolve(data);
 			}
-		},
-		(error) => {
-			errorHandler(data, error);
 		}
 	);
 }
@@ -330,7 +259,7 @@ function object(method, data) {
 			try {
 				const client = await dbClient(data);
 
-				if (!client || client.status === false) return data;
+				if (!client || client.status === false) return resolve(data);
 
 				let dataTransferedIn = 0;
 				let dataTransferedOut = 0;
@@ -386,7 +315,7 @@ function object(method, data) {
 							let $storage = data[type][i].$storage || [];
 							let $database = data[type][i].$database || [];
 							let $array = data[type][i].$array || [];
-							let update = {...globalUpdate};
+							let update = { ...globalUpdate };
 
 							if (!Array.isArray($storage))
 								$storage = [data[type][i].$storage];
@@ -417,7 +346,10 @@ function object(method, data) {
 							let { query, sort, index, limit } = filter;
 
 							if (method === "create") {
-								data[type][i] = replaceArray(data[type][i]);
+								// Safety check for replaceArray execution
+								if (typeof replaceArray === 'function') {
+									data[type][i] = replaceArray(data[type][i]);
+								}
 								data[type][i] = dotNotationToObject(
 									data[type][i]
 								);
@@ -427,8 +359,6 @@ function object(method, data) {
 									on: new Date(data.timeStamp),
 									by: data.user_id || data.clientId
 								};
-							} else if (method === "read") {
-								// projection = createProjection(projection, data[type][i]);
 							} else if (method === "update") {
 								if (!data[type][i].modified)
 									data[type][i].modified = {
@@ -445,16 +375,18 @@ function object(method, data) {
 								createUpdate(update, options, data[type][i]);
 							}
 
-							if (data[type][i]._id || method === "create") {
+							if (data[type][i]._id || method === "create" || isFilter) {
 								if (method !== "create") {
 									try {
-										query._id = ObjectId(data[type][i]._id);
+										if (data[type][i]._id) {
+											query._id = new ObjectId(data[type][i]._id);
+										}
 									} catch (error) {
 										if (
 											method === "update" &&
 											options.upsert
 										) {
-											data[type][i]._id = ObjectId();
+											data[type][i]._id = new ObjectId();
 											query._id = data[type][i]._id;
 										} else {
 											errorHandler(
@@ -480,10 +412,9 @@ function object(method, data) {
 									if (method === "create") {
 										if (data[type][i]._id) {
 											try {
-												data[type][i]._id =
-													new ObjectId(
-														data[type][i]._id
-													);
+												data[type][i]._id = new ObjectId(
+													data[type][i]._id
+												);
 											} catch (error) {
 												delete data[type][i]._id;
 											}
@@ -491,338 +422,132 @@ function object(method, data) {
 										result = await arrayObj.insertOne(
 											data[type][i]
 										);
-										// TODO: type error occuring when pushing the item pushes but throws an error
 										data[type][i]._id =
 											result.insertedId.toString();
-										// documents.push({ ...data[type][i], ...reference })
-									} else if (method === "read") {
-										result = await arrayObj.findOne(query, {
-											projection
-										});
-										if (result)
-											result._id = result._id.toString();
+										documents.push({ ...data[type][i], ...reference });
+									} else {
+										// Modern cursor iteration for v7.5
+										let cursor = arrayObj.find(query, { projection });
+										if (sort && Object.keys(sort).length > 0) cursor = cursor.sort(sort);
+										if (limit) cursor = cursor.limit(limit);
 
-										if (
-											data[type][i].$storage &&
-											data[type][i].modified &&
-											data[type][i].modified.on
-										) {
-											if (!result) {
-												result =
-													await arrayObj.insertOne(
-														data[type][i]
-													);
-												data[type][i]._id =
-													result.insertedId.toString();
-											} else if (
-												result &&
-												new Date(
-													data[type][i].modified.on
-												) > new Date(result.modified.on)
-											) {
-												data[type][i] = {
-													...result,
-													...data[type][i]
-												};
-												createUpdate(
-													update,
-													options,
-													data[type][i]
+										let hasDocuments = false;
+
+										for await (const document of cursor) {
+											hasDocuments = true;
+											dataTransferedIn += getBytes(document);
+
+											if (data.$filter && data.$filter.search) {
+												let isMatch = searchData(
+													document,
+													data.$filter.search
 												);
-												result =
-													await arrayObj.updateOne(
-														query,
-														update,
-														options
-													);
-											} else
-												data[type][i] = {
-													...data[type][i],
-													...result
-												};
-										} else if (result)
-											data[type][i] = {
-												...data[type][i],
-												...result
-											};
-										else {
-											data[type].splice(i, 1);
-											continue;
-										}
-									} else if (method === "update") {
-										if (
-											update["$pull"] &&
-											update["$unset"]
-										) {
-											result = await arrayObj.updateOne(
-												query,
-												{ $unset: update["$unset"] },
-												options
-											);
-											delete update["$unset"];
-										}
-
-										result = await arrayObj.updateOne(
-											query,
-											update,
-											options
-										);
-
-										// TODO: handle upsert false and id does not exist
-										data[type][i]._id =
-											query._id.toString();
-										// documents.push({ ...data[type][i], ...reference })
-									} else if (method === "delete") {
-										result = await arrayObj.deleteOne(
-											query
-										);
-										// documents.push({ ...reference, _id: data[type][i]._id })
-									}
-
-									data[type][i].$storage = $storage;
-									data[type][i].$database = $database;
-									data[type][i].$array = $array;
-
-									dataTransferedIn += getBytes(result);
-								} catch (error) {
-									errorHandler(data, error, database, array);
-								}
-							} else if (isFilter) {
-								try {
-									// TODO: index is 1 if indexeddb already returned an item interfering with query
-									// if (data.array === "keys")
-									//     index = 0
-
-									if (method === "read")
-										projection = {
-											...projections,
-											...projection
-										};
-
-									if (
-										data.$filter &&
-										data.$filter.startingIndex >= 0
-									)
-										index = data.$filter.startingIndex;
-
-									dataTransferedOut += getBytes({
-										query,
-										projection,
-										sort,
-										index,
-										limit
-									});
-
-									let cursor,
-										document = "";
-									if (Object.keys(sort).length > 0)
-										cursor = arrayObj
-											.find(query, { projection })
-											.sort(sort)
-											.skip(index)
-											.limit(limit)
-											.allowDiskUse(true);
-									else
-										cursor = arrayObj
-											.find(query, { projection })
-											.sort(sort)
-											.skip(index)
-											.limit(limit);
-
-									if (
-										!(await cursor.hasNext()) &&
-										method === "update" &&
-										data.upsert
-									)
-										document = {
-											_id: ObjectId(data[type][i]._id)
-										};
-
-									while (
-										(await cursor.hasNext()) ||
-										document
-									) {
-										if (!document)
-											document = await cursor.next();
-
-										dataTransferedIn += getBytes(document);
-
-										if (
-											data.$filter &&
-											data.$filter.search
-										) {
-											let isMatch = searchData(
-												document,
-												data.$filter.search
-											);
-											if (!isMatch) continue;
-										}
-
-										if (method === "read") {
-											document._id =
-												document._id.toString();
-											let object = data[type].find(
-												(obj) =>
-													obj._id &&
-													obj._id.toString() ===
-														document._id.toString()
-											);
-											if (object) {
-												if (
-													object.$storage &&
-													object.modified &&
-													object.modified.on
-												) {
-													if (
-														document &&
-														document.modified &&
-														new Date(
-															object.modified.on
-														) >
-															new Date(
-																document.modified.on
-															)
-													) {
-														object = {
-															...document,
-															...object
-														};
-														createUpdate(
-															update,
-															options,
-															object
-														);
-														document =
-															await arrayObj.updateOne(
-																query,
-																update,
-																options
-															);
-														dataTransferedIn +=
-															getBytes(document);
-													} else
-														documents.push({
-															...document,
-															...reference
-														});
-												} else
-													documents.push({
-														...document,
-														...reference
-													});
-											} else
-												documents.push({
-													...document,
-													...reference
-												});
-										} else {
-											dataTransferedOut += getBytes({
-												_id: document._id,
-												update,
-												options
-											});
-
-											let result;
-											if (method === "update") {
-												if (
-													update["$pull"] &&
-													update["$unset"]
-												) {
-													result =
-														await arrayObj.updateOne(
-															{
-																_id: document._id
-															},
-															{
-																$unset: update[
-																	"$unset"
-																]
-															},
-															options
-														);
-													delete update["$unset"];
-												}
-
-												if (options.returnNewDocument) {
-													let object =
-														await arrayObj.findOneAndUpdate(
-															{
-																_id: document._id
-															},
-															update,
-															options
-														);
-													for (let key of Object.keys(
-														object
-													)) {
-														if (key === "_id")
-															continue;
-														let newArrayKey =
-															options.newArray[
-																key
-															];
-														// TODO: get index based on $operator
-														let index =
-															object[key].length -
-															1;
-														if (index >= 0)
-															data[type][i][
-																newArrayKey.replace(
-																	"[]",
-																	`[${index}]`
-																)
-															] =
-																data[type][i][
-																	newArrayKey
-																];
-													}
-												} else
-													result =
-														await arrayObj.updateOne(
-															{
-																_id: document._id
-															},
-															update,
-															options
-														);
-												// TODO: if update.$push or update.$each read document with projection to get index and update the keys [] to include index
-											} else if (method === "delete") {
-												result =
-													await arrayObj.deleteOne({
-														_id: document._id
-													});
+												if (!isMatch) continue;
 											}
 
-											dataTransferedIn +=
-												getBytes(result);
+											if (method === "read") {
+												document._id = document._id.toString();
+												let object = data[type].find(
+													(obj) =>
+														obj._id &&
+														obj._id.toString() === document._id.toString()
+												);
+
+												if (object && object.$storage && object.modified && object.modified.on) {
+													if (document.modified && new Date(object.modified.on) > new Date(document.modified.on)) {
+														object = { ...document, ...object };
+														let docUpdate = {};
+														let docOptions = {};
+														createUpdate(docUpdate, docOptions, object);
+														let updateResult = await arrayObj.updateOne(
+															{ _id: new ObjectId(document._id) },
+															docUpdate,
+															docOptions
+														);
+														dataTransferedIn += getBytes(updateResult);
+													}
+												}
+												documents.push({ ...document, ...reference });
+											} else {
+												dataTransferedOut += getBytes({
+													_id: document._id,
+													update,
+													options
+												});
+
+												if (method === "update") {
+													if (update["$pull"] && update["$unset"]) {
+														result = await arrayObj.updateOne(
+															{ _id: document._id },
+															{ $unset: update["$unset"] },
+															options
+														);
+														delete update["$unset"];
+													}
+
+													if (options.returnNewDocument) {
+														// returnDocument: 'after' replaces returnOriginal: false for v7.5
+														let updatedObj = await arrayObj.findOneAndUpdate(
+															{ _id: document._id },
+															update,
+															{ ...options, returnDocument: 'after' }
+														);
+
+														if (updatedObj && updatedObj.value) {
+															for (let key of Object.keys(updatedObj.value)) {
+																if (key === "_id" || !options.newArray) continue;
+																let newArrayKey = options.newArray[key];
+																if (newArrayKey) {
+																	let idx = updatedObj.value[key].length - 1;
+																	if (idx >= 0) {
+																		data[type][i][newArrayKey.replace("[]", `[${idx}]`)] = data[type][i][newArrayKey];
+																	}
+																}
+															}
+														}
+													} else {
+														result = await arrayObj.updateOne(
+															{ _id: document._id },
+															update,
+															options
+														);
+													}
+												} else if (method === "delete") {
+													result = await arrayObj.deleteOne({
+														_id: document._id
+													});
+												}
+
+												dataTransferedIn += getBytes(result);
+												documents.push({
+													...data[type][i],
+													...reference,
+													_id: document._id.toString()
+												});
+											}
+										}
+
+										// Upsert fallback if missing
+										if (!hasDocuments && method === "update" && (data.upsert || options.upsert)) {
+											let upsertId = data[type][i]._id ? new ObjectId(data[type][i]._id) : new ObjectId();
+											let result = await arrayObj.updateOne(
+												{ _id: upsertId },
+												update,
+												{ ...options, upsert: true }
+											);
+											dataTransferedIn += getBytes(result);
 											documents.push({
 												...data[type][i],
 												...reference,
-												_id: document._id.toString()
+												_id: upsertId.toString()
 											});
-											// data[type].push({ ...data[type][i], ...reference, _id: document._id.toString() })
 										}
-										document = "";
 									}
 								} catch (error) {
 									errorHandler(data, error, database, array);
 								}
 							}
 						}
-
-						// if (method === 'create') {
-						//     try {
-						//         dataTransferedOut += getBytes(data[type])
-						//         const result = await arrayObj.insertMany(data[type]);
-						//         dataTransferedIn += getBytes(result)
-
-						//         for (let i = 0; i < data[type].length; i++) {
-						//             data[type][i]._id = data[type][i]._id.toString()
-						//         }
-						//     } catch (error) {
-						//         errorHandler(data, error, database, array)
-						//     }
-						// }
 					}
 				}
 				data = createData(
@@ -838,9 +563,6 @@ function object(method, data) {
 				console.log(method, "error", error);
 				resolve(data);
 			}
-		},
-		(error) => {
-			errorHandler(data, error);
 		}
 	);
 }
