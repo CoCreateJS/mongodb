@@ -8,33 +8,81 @@ import {
     isValidDate
 } from "@cocreate/utils";
 
-const clients = new Map();
 const organizations = {};
 
+/**
+ * Dynamically resolves or caches a long-lived MongoDB Client instance using modern driver syntax.
+ * @param {Object} data - Context parameters containing credentials and storage URL
+ * @returns {Promise<MongoClient>} Resolved MongoDB Client connection
+ */
 async function dbClient(data) {
-	if (data.storageUrl) {
-		if (!organizations[data.organization_id])
-			organizations[data.organization_id] = {};
-		try {
-			if (!organizations[data.organization_id][data.storageUrl])
-				organizations[data.organization_id][data.storageUrl] =
-					MongoClient.connect(data.storageUrl);
+    if (data.storageUrl) {
+        if (!organizations[data.organization_id]) {
+            organizations[data.organization_id] = {};
+        }
+        
+        try {
+            // If connection doesn't exist, create it and store the promise to prevent concurrent duplicate connections
+            if (!organizations[data.organization_id][data.storageUrl]) {
+                
+                // Native MongoDB Node.js Driver v6+ recommended constructor instantiation
+                const client = new MongoClient(data.storageUrl, {
+                    maxPoolSize: 100,
+                    minPoolSize: 0,             // Connections scale all the way down to 0 when idle
+                    maxIdleTimeMS: 30000,       // Automatically disconnects individual sockets after 30 seconds of inactivity
+                    connectTimeoutMS: 5000,
+                    socketTimeoutMS: 30000
+                });
 
-			organizations[data.organization_id][data.storageUrl] =
-				await organizations[data.organization_id][data.storageUrl];
-			return organizations[data.organization_id][data.storageUrl];
-		} catch (error) {
-			console.error(
-				`${data.organization_id}: storageName ${data.storageName} failed to connect to mongodb`
-			);
-			errorHandler(data, error);
-			return { status: false };
-		}
-	}
+                // Cache the connection promise so simultaneous requests share the same initialization lifecycle
+                organizations[data.organization_id][data.storageUrl] = client.connect();
+            }
 
-	errorHandler(data, "missing StorageUrl");
-	return;
+            // Await connection resolution safely
+            organizations[data.organization_id][data.storageUrl] = await organizations[data.organization_id][data.storageUrl];
+            return organizations[data.organization_id][data.storageUrl];
+        } catch (error) {
+            console.error(
+                `${data.organization_id}: storageUrl ${data.storageUrl} failed to connect to mongodb`
+            );
+            errorHandler(data, error);
+            return { status: false };
+        }
+    }
+
+    errorHandler(data, "missing StorageUrl");
+    return;
 }
+
+/**
+ * Global Event Listener: orgDeleted
+ * Triggers clean teardowns of cached database connection pools as users disconnect.
+ */
+process.on('orgDeleted', async (organization_id) => {
+    const orgPools = organizations[organization_id];
+    
+    if (orgPools) {
+        console.log(`[DB] Cleanup Event: Closing connection pools for inactive Org: ${organization_id}`);
+        
+        // Extract connection clients directly using Object.values
+        const clientsList = Object.values(orgPools);
+        
+        for (const client of clientsList) {
+            try {
+                if (client && typeof client.close === 'function') {
+                    // Close socket pools gracefully to free db sockets
+                    await client.close();
+                }
+            } catch (err) {
+                console.error(`[DB] Error closing connection for Org ${organization_id}:`, err);
+            }
+        }
+        
+        // Remove reference to enable complete garbage collection (V8 memory release)
+        delete organizations[organization_id];
+        console.log(`[DB] Memory Cleared: Reference for Org ${organization_id} removed from runtime registry.`);
+    }
+});
 
 function send(data) {
 	let [type, method] = data.method.split(".");
