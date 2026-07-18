@@ -1,16 +1,22 @@
 {
-  "name": "@cocreate/mongodb",
-  "version": "1.25.0",
-  "description": "A simple mongodb component in vanilla javascript. Easily configured using HTML5 data-attributes and/or JavaScript API.",
-  "keywords": [
-    "mongodb",
-    "low-code",
-    "realtime",
-    "realtime-framework",
-    "collaboration",
-    "shared-editing",
-    "html5-framework",
-    "javascript-framework"
+"name": "@cocreate/mongodb",
+"version": "1.24.1",
+"description": "Lightweight, real-time MongoDB CRUD wrapper and multi-tenant state routing client for the collaborative CoCreate ecosystem.",
+"keywords": [
+  "mongodb",
+  "nosql",
+  "crud-api",
+  "abstract-crud",
+  "database-abstraction",
+  "multi-tenant",
+  "multi-tenant-routing",
+  "realtime-sync",
+  "state-synchronization",
+  "shared-editing",
+  "collaborative-editing",
+  "websocket-mesh",
+  "peer-to-peer-sync",
+  "p2p-database"
   ],
   "publishConfig": {
     "access": "public"
