@@ -1,3 +1,16 @@
+# [1.25.0](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.24.1...v1.25.0) (2026-07-18)
+
+
+### Bug Fixes
+
+* update bandwidth event types to 'ingress' and 'egress' ([5ed0df9](https://github.com/CoCreate-app/CoCreate-mongodb/commit/5ed0df9cd4547315bfb1652300e458350bc858c2))
+
+
+### Features
+
+* add isolated CRUD processors for array, database, and object management ([b8b50e9](https://github.com/CoCreate-app/CoCreate-mongodb/commit/b8b50e986aa3668a4163e3678e4dce4c8d2b1eb7))
+* enhance MongoDB client connection management with improved caching and cleanup on org deletion ([ad8fa09](https://github.com/CoCreate-app/CoCreate-mongodb/commit/ad8fa09b8110152fee829b70e145516c19955f86))
+
 ## [1.24.1](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.24.0...v1.24.1) (2026-07-17)
 
 
