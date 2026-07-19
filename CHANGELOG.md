@@ -1,3 +1,10 @@
+## [1.25.1](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.25.0...v1.25.1) (2026-07-19)
+
+
+### Bug Fixes
+
+* revert package.json version and description to previous state ([35ac67c](https://github.com/CoCreate-app/CoCreate-mongodb/commit/35ac67c4ea3aa1ed044aab14879fd95bf7f4666b))
+
 # [1.25.0](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.24.1...v1.25.0) (2026-07-18)
 
 
