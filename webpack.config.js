@@ -36,25 +36,45 @@ export default async (env, argv) => {
             globalObject: "this"
         },
 
+        resolve: {
+            extensions: [".js", ".mjs", ".cjs", ".json"],
+            fullySpecified: false
+        },
+
         node: {
             __dirname: false,
             __filename: false
         },
 
         plugins: [
-            // Ignore optional native drivers and optional cloud dependencies to prevent resolution warnings
-            new webpack.IgnorePlugin({
-                resourceRegExp: /^(kerberos|@mongodb-js\/zstd|@aws-sdk\/credential-providers|gcp-metadata|snappy|socks|mongodb-client-encryption|aws4)$/
+            // Enforce single-file bundle output without dynamic split chunks
+            new webpack.optimize.LimitChunkCountPlugin({
+                maxChunks: 1
             }),
+
+            // Ignore optional native drivers, C++ extensions, docs, and non-essential cloud signers
+            new webpack.IgnorePlugin({
+                resourceRegExp: /^(kerberos|@mongodb-js\/zstd|@aws-sdk\/credential-providers|gcp-metadata|snappy|socks|mongodb-client-encryption|aws4|bson-ext|sparse-bitfield|cardinal|\.d\.ts)$/
+            }),
+
             // Uploads bundled driver script to CDN/HTTP endpoint if configured
             new FileUploader(env, argv)
         ],
 
+        // Disable source map generation completely to eliminate .map files and minimize output size
+        devtool: false,
         mode: isProduction ? "production" : "development",
-        devtool: isProduction ? "source-map" : "eval-source-map",
 
         module: {
             rules: [
+                {
+                    // Relax strict ESM extension requirements for node_modules resolution
+                    test: /\.m?[jc]s$/,
+                    type: "javascript/auto",
+                    resolve: {
+                        fullySpecified: false
+                    }
+                },
                 {
                     test: /\.js$/,
                     exclude: /node_modules/,
@@ -82,7 +102,7 @@ export default async (env, argv) => {
         },
 
         performance: {
-            hints: isProduction ? "warning" : false
+            hints: false
         }
     };
 
