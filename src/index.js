@@ -1,5 +1,5 @@
 /********************************************************************************
- * Copyright (C) 2023 CoCreate and Contributors.
+ * Copyright (C) 2026 CoCreate and Contributors.
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published
@@ -15,15 +15,26 @@
  * along with this program. If not, see <https://www.gnu.org/licenses/>.
  ********************************************************************************/
 
-import database from "./database.js"
-import array from "./array.js"
-import object from "./object.js"
+import database from "./database.js";
+import array from "./array.js";
+import object from "./object.js";
 
-function send(data) {
-	let [type, method] = data.method.split(".");
-	if (type === "database") return database(method, data);
-	if (type === "array") return array(method, data);
-	if (type === "object") return object(method, data);
+/**
+ * Routes CRUD requests to appropriate database, array, or object modules.
+ * @param {Object} data - CRUD request payload containing method, database, array, organization_id, etc.
+ * @returns {Promise<Object>} Execution result from database layer
+ */
+async function send(data) {
+    if (!data || !data.method) {
+        throw new Error("Invalid request: missing method");
+    }
+
+    const [type, method] = data.method.split(".");
+    if (type === "database") return await database(method, data);
+    if (type === "array") return await array(method, data);
+    if (type === "object") return await object(method, data);
+
+    // TODO: use utilities error hanler to apply error to data data.error
 }
 
-export default { send };
+export default { send }

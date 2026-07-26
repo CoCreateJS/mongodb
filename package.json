@@ -42,6 +42,9 @@
   },
   "type": "module",
   "main": "./src/index.js",
+  "devDependencies": {
+    "@cocreate/webpack": "^1.6.0"
+  },
   "dependencies": {
     "@cocreate/utils": "^1.44.3",
     "mongodb": "^7.5.0"
