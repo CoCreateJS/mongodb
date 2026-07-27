@@ -54,7 +54,7 @@ export default async (env, argv) => {
 
             // Ignore optional native drivers, C++ extensions, docs, and non-essential cloud signers
             new webpack.IgnorePlugin({
-                resourceRegExp: /^(kerberos|@mongodb-js\/zstd|@aws-sdk\/credential-providers|gcp-metadata|snappy|socks|mongodb-client-encryption|aws4|bson-ext|sparse-bitfield|cardinal|\.d\.ts)$/
+                resourceRegExp: /^(kerberos|@mongodb-js\/zstd|@aws-sdk\/credential-providers|gcp-metadata|snappy|socks|mongodb-client-encryption|aws4|bson-ext|cardinal|\.d\.ts)$/
             }),
 
             // Uploads bundled driver script to CDN/HTTP endpoint if configured

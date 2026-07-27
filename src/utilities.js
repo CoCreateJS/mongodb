@@ -25,17 +25,17 @@ const organizations = {};
  * @returns {Promise<MongoClient>} Resolved MongoDB Client connection
  */
 async function dbClient(data) {
-    if (data.storageUrl) {
+    const storageUrl = data.storageConfig?.url
+    if (storageUrl) {
         if (!organizations[data.organization_id]) {
             organizations[data.organization_id] = {};
         }
         
         try {
             // If connection doesn't exist, create it and store the promise to prevent concurrent duplicate connections
-            if (!organizations[data.organization_id][data.storageUrl]) {
-                
+            if (!organizations[data.organization_id][storageUrl]) {
                 // Native MongoDB Node.js Driver v6+ recommended constructor instantiation
-                const client = new MongoClient(data.storageUrl, {
+                const client = new MongoClient(storageUrl, {
                     maxPoolSize: 100,
                     minPoolSize: 0,             // Connections scale all the way down to 0 when idle
                     maxIdleTimeMS: 30000,       // Automatically disconnects individual sockets after 30 seconds of inactivity
@@ -44,15 +44,15 @@ async function dbClient(data) {
                 });
 
                 // Cache the connection promise so simultaneous requests share the same initialization lifecycle
-                organizations[data.organization_id][data.storageUrl] = client.connect();
+                organizations[data.organization_id][storageUrl] = client.connect();
             }
 
             // Await connection resolution safely
-            organizations[data.organization_id][data.storageUrl] = await organizations[data.organization_id][data.storageUrl];
-            return organizations[data.organization_id][data.storageUrl];
+            organizations[data.organization_id][storageUrl] = await organizations[data.organization_id][storageUrl];
+            return organizations[data.organization_id][storageUrl];
         } catch (error) {
             console.error(
-                `${data.organization_id}: storageUrl ${data.storageUrl} failed to connect to mongodb`
+                `${data.organization_id}: storageUrl ${storageUrl} failed to connect to mongodb`
             );
             errorHandler(data, error);
             return { status: false };
