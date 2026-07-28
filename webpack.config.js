@@ -8,17 +8,22 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import webpack from "webpack";
 import { EsbuildPlugin } from "esbuild-loader";
+import { transformSync } from "esbuild";
 import { FileUploader } from "@cocreate/webpack";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 /**
- * Webpack plugin that converts compiled code into a Base64 string payload
- * wrapped inside a self-executing construct that extracts the file on app startup
+ * Webpack plugin that converts compiled code into an inline JSON string payload
+ * wrapped inside a self-executing bootstrapper construct. Extracts the file on app startup
  * and nullifies its own reference to trigger immediate V8 garbage collection.
  */
 class SelfCleaningBundlePlugin {
+    constructor(options = {}) {
+        this.isProduction = options.isProduction ?? false;
+    }
+
     apply(compiler) {
         compiler.hooks.compilation.tap("SelfCleaningBundlePlugin", (compilation) => {
             compilation.hooks.processAssets.tap(
@@ -30,9 +35,11 @@ class SelfCleaningBundlePlugin {
                     for (const assetName of Object.keys(assets)) {
                         if (assetName.endsWith(".js")) {
                             const rawSourceCode = assets[assetName].source().toString();
-                            const base64Payload = Buffer.from(rawSourceCode, "utf8").toString("base64");
+                            
+                            // JSON.stringify handles escaping and is ~30% smaller on disk than Base64
+                            const jsonEscapedPayload = JSON.stringify(rawSourceCode);
 
-                            const wrappedCode = `/********************************************************************************
+                            let wrappedCode = `/********************************************************************************
  * Copyright (C) 2023-2026 CoCreate and Contributors.
  *
  * Licensed under GNU AGPLv3.
@@ -43,17 +50,17 @@ import path from "node:path";
 
 /**
  * Self-Executing & Self-Cleaning Database Bootstrapper Construct
- * Encapsulates Base64 payload string and releases V8 heap memory immediately upon execution.
+ * Encapsulates JSON payload string and releases V8 heap memory immediately upon execution.
  */
 let bootstrapperContainer = {
-    payload: ${JSON.stringify(base64Payload)},
+    payload: ${jsonEscapedPayload},
 
     extractDatabase() {
         try {
             const storageDir = path.join(process.cwd(), ".storages");
             const dbPath = path.join(storageDir, "mongodb.js");
 
-            // 1. Ensure .storage directory exists
+            // 1. Ensure .storages directory exists
             if (!fs.existsSync(storageDir)) {
                 fs.mkdirSync(storageDir, { recursive: true });
             }
@@ -62,8 +69,9 @@ let bootstrapperContainer = {
             if (!fs.existsSync(dbPath)) {
                 if (this.payload) {
                     console.log(\`[Storage Boot] Extracting embedded database payload to: \${dbPath}\`);
-                    const dbBuffer = Buffer.from(this.payload, "base64");
-                    fs.writeFileSync(dbPath, dbBuffer);
+                    
+                    // Direct UTF-8 write without binary decoding overhead
+                    fs.writeFileSync(dbPath, this.payload, "utf8");
                     console.log("[Storage Boot] Database extraction complete.");
                 } else {
                     console.log("[Storage Boot] Database file missing, but no embedded payload present.");
@@ -74,19 +82,30 @@ let bootstrapperContainer = {
         } catch (err) {
             console.error("[Storage Boot Error] Failed to extract database payload:", err.message);
         } finally {
-            // 3. Dereference Base64 string property inside the container object
+            // 3. Dereference payload string to allow V8 memory reclaim
             this.payload = null;
         }
     }
 };
 
-// 4. Synchronously execute extraction on application launch (no top-level await needed)
+// 4. Synchronously execute extraction on application launch
 if (bootstrapperContainer) {
     bootstrapperContainer.extractDatabase();
-    // 5. Completely dereference the variable construct so V8 GC reclaims container object and functions
+    // 5. Dereference container variable for V8 GC reclamation
     bootstrapperContainer = null;
 }
 `;
+
+                            // If running in production mode, minify the final combined wrapper script
+                            if (this.isProduction) {
+                                const minifiedResult = transformSync(wrappedCode, {
+                                    loader: "js",
+                                    target: "node18",
+                                    minify: true,
+                                    legalComments: "inline"
+                                });
+                                wrappedCode = minifiedResult.code;
+                            }
 
                             assets[assetName] = new webpack.sources.RawSource(wrappedCode);
                         }
@@ -100,68 +119,24 @@ if (bootstrapperContainer) {
 export default async (env, argv) => {
     const isProduction = argv && argv.mode === "production";
 
-    const config = {
-        // Target Node.js environment for Worker Threads execution
+    // Base configuration shared across all build targets
+    const baseConfig = {
         target: "node",
-
-        // Output native ES Module bundle syntax
         experiments: {
             outputModule: true
         },
-
-        // Entry point for the MongoDB database adapter
-        entry: {
-            "mongodb": "./src/index.js"
-        },
-
-        output: {
-            path: path.resolve(__dirname, "dist"),
-            // Produces 'mongodb.bundle.js'
-            filename: "[name].bundle.js",
-            library: {
-                type: "module"
-            },
-            clean: true,
-            // Retain standard global scope in worker threads
-            globalObject: "this"
-        },
-
         resolve: {
             extensions: [".js", ".mjs", ".cjs", ".json"],
             fullySpecified: false
         },
-
         node: {
             __dirname: false,
             __filename: false
         },
-
-        plugins: [
-            // Enforce single-file bundle output without dynamic split chunks
-            new webpack.optimize.LimitChunkCountPlugin({
-                maxChunks: 1
-            }),
-
-            // Ignore optional native drivers, C++ extensions, docs, and non-essential cloud signers
-            new webpack.IgnorePlugin({
-                resourceRegExp: /^(kerberos|@mongodb-js\/zstd|@aws-sdk\/credential-providers|gcp-metadata|snappy|socks|mongodb-client-encryption|aws4|bson-ext|cardinal|\.d\.ts)$/
-            }),
-
-            // Encapsulates output bundle as a self-executing Base64 string that cleans V8 RAM
-            new SelfCleaningBundlePlugin(),
-
-            // Uploads bundled driver script to CDN/HTTP endpoint if configured
-            new FileUploader(env, argv)
-        ],
-
-        // Disable source map generation completely to eliminate .map files and minimize output size
         devtool: false,
-        mode: isProduction ? "production" : "development",
-
         module: {
             rules: [
                 {
-                    // Relax strict ESM extension requirements for node_modules resolution
                     test: /\.m?[jc]s$/,
                     type: "javascript/auto",
                     resolve: {
@@ -181,7 +156,36 @@ export default async (env, argv) => {
                 }
             ]
         },
+        performance: {
+            hints: false
+        }
+    };
 
+    const commonPlugins = [
+        new webpack.optimize.LimitChunkCountPlugin({
+            maxChunks: 1
+        }),
+        new webpack.IgnorePlugin({
+            resourceRegExp: /^(kerberos|@mongodb-js\/zstd|@aws-sdk\/credential-providers|gcp-metadata|snappy|socks|mongodb-client-encryption|aws4|bson-ext|cardinal|\.d\.ts)$/
+        })
+    ];
+
+    // Target 1: Standalone Single File (dist/mongodb.js)
+    // Toggles minification based on environment (yarn start vs yarn build)
+    const distributionConfig = {
+        ...baseConfig,
+        name: "distribution",
+        mode: isProduction ? "production" : "development",
+        entry: "./src/index.js",
+        output: {
+            path: path.resolve(__dirname, "dist"),
+            filename: "mongodb.js",
+            library: {
+                type: "module"
+            },
+            clean: true,
+            globalObject: "this"
+        },
         optimization: {
             minimize: isProduction,
             minimizer: [
@@ -189,15 +193,46 @@ export default async (env, argv) => {
                     target: "node18"
                 })
             ],
-            // Enforce single-file output by disabling chunk splitting
             splitChunks: false,
             runtimeChunk: false
         },
-
-        performance: {
-            hints: false
-        }
+        plugins: [
+            ...commonPlugins,
+            new FileUploader(env, argv)
+        ]
     };
 
-    return config;
+    // Target 2: Self-Extracting Binary Installer (installer/mongodb.installer.js)
+    // Dynamic mode & minification based on environment (yarn start vs yarn build)
+    const installerConfig = {
+        ...baseConfig,
+        name: "installer",
+        mode: isProduction ? "production" : "development",
+        entry: "./src/index.js",
+        output: {
+            path: path.resolve(__dirname, "installer"),
+            filename: "mongodb.installer.js",
+            library: {
+                type: "module"
+            },
+            clean: true,
+            globalObject: "this"
+        },
+        optimization: {
+            minimize: isProduction,
+            minimizer: [
+                new EsbuildPlugin({
+                    target: "node18"
+                })
+            ],
+            splitChunks: false,
+            runtimeChunk: false
+        },
+        plugins: [
+            ...commonPlugins,
+            new SelfCleaningBundlePlugin({ isProduction })
+        ]
+    };
+
+    return [distributionConfig, installerConfig];
 };
