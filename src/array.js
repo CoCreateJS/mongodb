@@ -30,6 +30,8 @@ import {
  * @param {Object} data - Context query details containing database and collection matrices
  */
 function array(method, data) {
+    const storageName = data.storageConfig?.name;
+
     return new Promise(
         async (resolve, reject) => {
             let type = "array";
@@ -69,13 +71,13 @@ function array(method, data) {
                                             arrayArray.push({
                                                 name: res.name,
                                                 database,
-                                                storage: data.storageName
+                                                storage: storageName
                                             });
                                     } else
                                         arrayArray.push({
                                             name: res.name,
                                             database,
-                                            storage: data.storageName
+                                            storage: storageName
                                         });
                                 }
                             }
@@ -111,7 +113,7 @@ function array(method, data) {
                                         arrayArray.push({
                                             name: array,
                                             database,
-                                            storage: data.storageName
+                                            storage: storageName
                                         });
                                     }
                                 } catch (error) {
@@ -144,7 +146,7 @@ function array(method, data) {
                                                 name: value,
                                                 oldName: array,
                                                 database,
-                                                storage: data.storageName
+                                                storage: storageName
                                             });
                                         }
                                     } catch (error) {
@@ -171,7 +173,7 @@ function array(method, data) {
                                             arrayArray.push({
                                                 name: array,
                                                 database,
-                                                storage: data.storageName
+                                                storage: storageName
                                             });
                                         }
                                     } catch (error) {

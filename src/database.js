@@ -29,6 +29,7 @@ import {
  * @param {Object} data - Context query details and transactional metrics
  */
 function database(method, data) {
+    const storageName = data.storageConfig?.name;
     return new Promise(
         async (resolve, reject) => {
             let type = "database";
@@ -61,12 +62,12 @@ function database(method, data) {
                                 if (isFilter)
                                     databaseArray.push({
                                         database,
-                                        storage: data.storageName
+                                        storage: storageName
                                     });
                             } else
                                 databaseArray.push({
                                     database,
-                                    storage: data.storageName
+                                    storage: storageName
                                 });
                         }
 
