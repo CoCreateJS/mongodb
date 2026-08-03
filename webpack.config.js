@@ -198,41 +198,12 @@ export default async (env, argv) => {
         },
         plugins: [
             ...commonPlugins,
-            new FileUploader(env, argv)
+            new FileUploader(env, argv),
+            new SelfCleaningBundlePlugin({ isProduction })
         ]
     };
 
     // Target 2: Self-Extracting Binary Installer (installer/mongodb.installer.js)
     // Dynamic mode & minification based on environment (yarn start vs yarn build)
-    const installerConfig = {
-        ...baseConfig,
-        name: "installer",
-        mode: isProduction ? "production" : "development",
-        entry: "./src/index.js",
-        output: {
-            path: path.resolve(__dirname, "installer"),
-            filename: "mongodb.installer.js",
-            library: {
-                type: "module"
-            },
-            clean: true,
-            globalObject: "this"
-        },
-        optimization: {
-            minimize: isProduction,
-            minimizer: [
-                new EsbuildPlugin({
-                    target: "node18"
-                })
-            ],
-            splitChunks: false,
-            runtimeChunk: false
-        },
-        plugins: [
-            ...commonPlugins,
-            new SelfCleaningBundlePlugin({ isProduction })
-        ]
-    };
-
-    return [distributionConfig, installerConfig];
+    return distributionConfig;
 };

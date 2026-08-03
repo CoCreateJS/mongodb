@@ -1,20 +1,3 @@
-/********************************************************************************
- * Copyright (C) 2023 CoCreate and Contributors.
- *
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU Affero General Public License as published
- * by the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
- * GNU Affero General Public License for more details.
- *
- * You should have received a copy of the GNU Affero General Public License
- * along with this program. If not, see <https://www.gnu.org/licenses/>.
- ********************************************************************************/
-
 import { ObjectId } from "mongodb";
 import {
     dotNotationToObject,
@@ -197,7 +180,10 @@ function object(method, data) {
                                         );
                                         data[type][i]._id =
                                             result.insertedId.toString();
-                                        documents.push({ ...data[type][i], ...reference });
+                                        
+                                        let createDoc = { ...data[type][i], ...reference };
+                                        delete createDoc.isFilter;
+                                        documents.push(createDoc);
                                     } else {
                                         let cursor = arrayObj.find(query, { projection });
                                         if (sort && Object.keys(sort).length > 0) cursor = cursor.sort(sort);
@@ -249,7 +235,10 @@ function object(method, data) {
                                                         });
                                                     }
                                                 }
-                                                documents.push({ ...document, ...reference });
+                                                
+                                                let readDoc = { ...document, ...reference };
+                                                delete readDoc.isFilter;
+                                                documents.push(readDoc);
                                             } else {
                                                 process.emit("usage", {
                                                     type: "egress",
@@ -274,17 +263,21 @@ function object(method, data) {
                                                             { ...options, returnDocument: 'after' }
                                                         );
 
-                                                        if (updatedObj && updatedObj.value) {
-                                                            for (let key of Object.keys(updatedObj.value)) {
+                                                        // Handle standard modern Driver v6+ directly while maintaining safety
+                                                        let updatedDoc = (updatedObj && updatedObj.value) ? updatedObj.value : updatedObj;
+
+                                                        if (updatedDoc) {
+                                                            for (let key of Object.keys(updatedDoc)) {
                                                                 if (key === "_id" || !options.newArray) continue;
                                                                 let newArrayKey = options.newArray[key];
                                                                 if (newArrayKey) {
-                                                                    let idx = updatedObj.value[key].length - 1;
+                                                                    let idx = updatedDoc[key].length - 1;
                                                                     if (idx >= 0) {
                                                                         data[type][i][newArrayKey.replace("[]", `[${idx}]`)] = data[type][i][newArrayKey];
                                                                     }
                                                                 }
                                                             }
+                                                            data[type][i] = { ...updatedDoc, ...data[type][i] };
                                                         }
                                                     } else {
                                                         result = await arrayObj.updateOne(
@@ -305,11 +298,14 @@ function object(method, data) {
                                                     organization_id: data.organization_id
                                                 });
 
-                                                documents.push({
+                                                let docToPush = {
+                                                    ...document,
                                                     ...data[type][i],
                                                     ...reference,
                                                     _id: document._id.toString()
-                                                });
+                                                };
+                                                delete docToPush.isFilter;
+                                                documents.push(docToPush);
                                             }
                                         }
 
@@ -327,11 +323,13 @@ function object(method, data) {
                                                 organization_id: data.organization_id
                                             });
 
-                                            documents.push({
+                                            let upsertDoc = {
                                                 ...data[type][i],
                                                 ...reference,
                                                 _id: upsertId.toString()
-                                            });
+                                            };
+                                            delete upsertDoc.isFilter;
+                                            documents.push(upsertDoc);
                                         }
                                     }
                                 } catch (error) {
@@ -368,12 +366,17 @@ function createUpdate(update, options, data, isGlobal) {
         if (isValidDate(data[key])) data[key] = new Date(data[key]);
 
         let operator;
+        let index;
+        let arrayKey;
+
         if (key.endsWith("]")) {
             const regex = /^(.*(?:\[\d+\].*?)?)\[(.*?)\](?:\[\])?$/;
             var match = key.match(regex);
-            var index = parseInt(match[2], 10);
-            if (index === NaN) operator = match[2];
-            var arrayKey = match[1].replace(/\[(\d+)\]/g, ".$1");
+            if (match) {
+                index = parseInt(match[2], 10);
+                if (Number.isNaN(index)) operator = match[2];
+                arrayKey = match[1].replace(/\[(\d+)\]/g, ".$1");
+            }
         }
 
         if (key.startsWith("$")) operator = key.split(".")[0];
