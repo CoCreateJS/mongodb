@@ -51,7 +51,8 @@ function object(method, data) {
 
                         let isFilter;
                         if (data.$filter) isFilter = true;
-                        if ((isFilter && !data[type].length) || data.isFilter)
+                        // ONLY splice dummy filter object when data[type] is strictly empty
+                        if (isFilter && !data[type].length)
                             data[type].splice(0, 0, {
                                 isFilter: "isEmptyObjectFilter"
                             });
@@ -68,6 +69,9 @@ function object(method, data) {
 
                         if (method === "update")
                             createUpdate(globalUpdate, options, data, true);
+
+                        // Track processed document IDs to prevent double file / duplicate document returns
+                        const seenDocKeys = new Set();
 
                         for (let i = 0; i < data[type].length; i++) {
                             let $storage = data[type][i].$storage || [];
@@ -183,7 +187,12 @@ function object(method, data) {
                                         
                                         let createDoc = { ...data[type][i], ...reference };
                                         delete createDoc.isFilter;
-                                        documents.push(createDoc);
+                                        
+                                        const docKey = `${database}:${array}:${createDoc._id}`;
+                                        if (!seenDocKeys.has(docKey)) {
+                                            seenDocKeys.add(docKey);
+                                            documents.push(createDoc);
+                                        }
                                     } else {
                                         let cursor = arrayObj.find(query, { projection });
                                         if (sort && Object.keys(sort).length > 0) cursor = cursor.sort(sort);
@@ -238,7 +247,12 @@ function object(method, data) {
                                                 
                                                 let readDoc = { ...document, ...reference };
                                                 delete readDoc.isFilter;
-                                                documents.push(readDoc);
+                                                
+                                                const docKey = `${database}:${array}:${readDoc._id}`;
+                                                if (!seenDocKeys.has(docKey)) {
+                                                    seenDocKeys.add(docKey);
+                                                    documents.push(readDoc);
+                                                }
                                             } else {
                                                 process.emit("usage", {
                                                     type: "egress",
@@ -305,7 +319,12 @@ function object(method, data) {
                                                     _id: document._id.toString()
                                                 };
                                                 delete docToPush.isFilter;
-                                                documents.push(docToPush);
+                                                
+                                                const docKey = `${database}:${array}:${docToPush._id}`;
+                                                if (!seenDocKeys.has(docKey)) {
+                                                    seenDocKeys.add(docKey);
+                                                    documents.push(docToPush);
+                                                }
                                             }
                                         }
 
@@ -329,7 +348,12 @@ function object(method, data) {
                                                 _id: upsertId.toString()
                                             };
                                             delete upsertDoc.isFilter;
-                                            documents.push(upsertDoc);
+                                            
+                                            const docKey = `${database}:${array}:${upsertDoc._id}`;
+                                            if (!seenDocKeys.has(docKey)) {
+                                                seenDocKeys.add(docKey);
+                                                documents.push(upsertDoc);
+                                            }
                                         }
                                     }
                                 } catch (error) {
