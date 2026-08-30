@@ -7,7 +7,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import webpack from "webpack";
-import { EsbuildPlugin } from "esbuild-loader";
 import { transformSync } from "esbuild";
 import { FileUploader } from "@cocreate/webpack";
 
@@ -187,13 +186,10 @@ export default async (env, argv) => {
             globalObject: "this"
         },
         optimization: {
-            minimize: isProduction,
-            minimizer: [
-                new EsbuildPlugin({
-                    target: "node18",
-                    minify: isProduction
-                })
-            ],
+            // The MongoDB driver and bundled CoCreate utilities contain runtime
+            // behavior that depends on identifiers remaining intact. Keep the
+            // runtime payload equivalent in development and production builds.
+            minimize: false,
             splitChunks: false,
             runtimeChunk: false
         },
@@ -220,13 +216,9 @@ export default async (env, argv) => {
             globalObject: "this"
         },
         optimization: {
-            minimize: isProduction,
-            minimizer: [
-                new EsbuildPlugin({
-                    target: "node18",
-                    minify: isProduction
-                })
-            ],
+            // Keep the embedded database payload identical to the runtime build.
+            // SelfCleaningBundlePlugin may still minify the small outer wrapper.
+            minimize: false,
             splitChunks: false,
             runtimeChunk: false
         },
