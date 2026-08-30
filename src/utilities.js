@@ -191,17 +191,17 @@ async function createFilter(data, arrayObj) {
             }
         }
 
-        if (arrayObj) {
-            count = await arrayObj.estimatedDocumentCount();
-            data.$filter.count = count;
-        }
-
         if (data.$filter.index) index = data.$filter.index;
         if (data.$filter.limit) limit = data.$filter.limit;
     }
 
     if (data["organization_id"])
         query["organization_id"] = data["organization_id"];
+
+    if (data.$filter && arrayObj) {
+        count = await arrayObj.countDocuments(query);
+        data.$filter.count = count;
+    }
 
     return { query, sort, index, limit, count };
 }

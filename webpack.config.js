@@ -190,7 +190,8 @@ export default async (env, argv) => {
             minimize: isProduction,
             minimizer: [
                 new EsbuildPlugin({
-                    target: "node18"
+                    target: "node18",
+                    minify: isProduction
                 })
             ],
             splitChunks: false,

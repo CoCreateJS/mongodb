@@ -196,6 +196,7 @@ function object(method, data) {
                                     } else {
                                         let cursor = arrayObj.find(query, { projection });
                                         if (sort && Object.keys(sort).length > 0) cursor = cursor.sort(sort);
+                                        if (index) cursor = cursor.skip(index);
                                         if (limit) cursor = cursor.limit(limit);
 
                                         let hasDocuments = false;
