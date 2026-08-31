@@ -116,9 +116,15 @@ function object(method, data) {
                                 );
                                 data[type][i]["organization_id"] =
                                     data["organization_id"];
+                                const auditOn = new Date(data.timeStamp);
+                                const auditBy = data.user_id || data.clientId;
                                 data[type][i]["created"] = {
-                                    on: new Date(data.timeStamp),
-                                    by: data.user_id || data.clientId
+                                    on: auditOn,
+                                    by: auditBy
+                                };
+                                data[type][i]["modified"] = {
+                                    on: auditOn,
+                                    by: auditBy
                                 };
                             } else if (method === "update") {
                                 if (!data[type][i].modified)

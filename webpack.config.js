@@ -190,6 +190,7 @@ export default async (env, argv) => {
             // behavior that depends on identifiers remaining intact. Keep the
             // runtime payload equivalent in development and production builds.
             minimize: false,
+            concatenateModules: false,
             splitChunks: false,
             runtimeChunk: false
         },
@@ -219,6 +220,7 @@ export default async (env, argv) => {
             // Keep the embedded database payload identical to the runtime build.
             // SelfCleaningBundlePlugin may still minify the small outer wrapper.
             minimize: false,
+            concatenateModules: false,
             splitChunks: false,
             runtimeChunk: false
         },
