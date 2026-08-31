@@ -603,10 +603,10 @@ function array(method, data) {
                   organization_id: data.organization_id
                 });
                 for (let res of result) {
-                  if (data.$filter && data.$filter.query) {
+                  if (data.filter && data.filter.query) {
                     let isFilter = (0,_cocreate_utils__WEBPACK_IMPORTED_MODULE_0__/* .queryData */ .VR)(
                       res,
-                      data.$filter.query
+                      data.filter.query
                     );
                     if (isFilter)
                       arrayArray.push({
@@ -763,10 +763,10 @@ function database(method, data) {
               organization_id: data.organization_id
             });
             for (let database2 of dbs.databases) {
-              if (data.$filter && data.$filter.query) {
+              if (data.filter && data.filter.query) {
                 let isFilter = (0,_cocreate_utils__WEBPACK_IMPORTED_MODULE_0__/* .queryData */ .VR)(
                   database2,
-                  data.$filter.query
+                  data.filter.query
                 );
                 if (isFilter)
                   databaseArray.push({
@@ -861,15 +861,15 @@ function object(method, data) {
             else if (!Array.isArray(data[type]))
               data[type] = [data[type]];
             let isFilter;
-            if (data.$filter) isFilter = true;
+            if (data.filter) isFilter = true;
             if (isFilter && !data[type].length)
               data[type].splice(0, 0, {
                 isFilter: "isEmptyObjectFilter"
               });
             let filter = await (0,_utilities_js__WEBPACK_IMPORTED_MODULE_4__/* .createFilter */ .HI)(data, arrayObj);
             let projections = {}, projection = {}, globalUpdate = {}, options = {};
-            if (data.$filter && data.$filter.key)
-              projection = data.$filter.key;
+            if (data.filter && data.filter.key)
+              projection = data.filter.key;
             if (method === "update")
               createUpdate(globalUpdate, options, data, true);
             const seenDocKeys = /* @__PURE__ */ new Set();
@@ -892,11 +892,11 @@ function object(method, data) {
               delete data[type][i].$storage;
               delete data[type][i].$database;
               delete data[type][i].$array;
-              if (method !== "create" && data[type][i].$filter) {
+              if (method !== "create" && data[type][i].filter) {
                 isFilter = true;
-                reference["$filter"] = data[type][i].$filter;
+                reference["filter"] = data[type][i].filter;
                 filter = await (0,_utilities_js__WEBPACK_IMPORTED_MODULE_4__/* .createFilter */ .HI)(
-                  { $filter: data[type][i].$filter },
+                  { filter: data[type][i].filter },
                   arrayObj
                 );
               }
@@ -994,10 +994,10 @@ function object(method, data) {
                         data: document,
                         organization_id: data.organization_id
                       });
-                      if (data.$filter && data.$filter.search) {
+                      if (data.filter && data.filter.search) {
                         let isMatch = (0,_cocreate_utils__WEBPACK_IMPORTED_MODULE_3__/* .searchData */ .Nw)(
                           document,
-                          data.$filter.search
+                          data.filter.search
                         );
                         if (!isMatch) continue;
                       }
@@ -1343,7 +1343,7 @@ process.on("orgDeleted", (organization_id) => {
 });
 async function createFilter(data, arrayObj) {
   let query = {}, sort = {}, index = 0, limit = 0, count;
-  if (data.$filter) {
+  if (data.filter) {
     let convertIfDate = function(value) {
       if (typeof value === "string" && value.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.\\d{3}Z$/)) {
         return new Date(value);
@@ -1353,54 +1353,64 @@ async function createFilter(data, arrayObj) {
       for (let key in obj) {
         const isOperator = key.startsWith("$");
         const currentKey = parentKey ? \`\${parentKey}.\${key}\` : key;
-        if (obj[key] && typeof obj[key] === "object" && !Array.isArray(obj[key])) {
+        const value = obj[key];
+        if (isOperator && !parentKey) {
+          result[key] = Array.isArray(value) ? value.map((condition) => {
+            if (condition && typeof condition === "object" && !Array.isArray(condition)) {
+              return mergeToDotNotation(condition);
+            }
+            return convertIfDate(condition);
+          }) : value;
+          continue;
+        }
+        if (value && typeof value === "object" && !Array.isArray(value)) {
           if (isOperator) {
             result[parentKey] = result[parentKey] || {};
-            result[parentKey][key] = obj[key];
+            result[parentKey][key] = value;
           } else {
-            mergeToDotNotation(obj[key], currentKey, result);
+            mergeToDotNotation(value, currentKey, result);
           }
         } else {
           if (isOperator) {
             result[parentKey] = result[parentKey] || {};
-            result[parentKey][key] = obj[key];
+            result[parentKey][key] = value;
           } else {
-            result[currentKey] = obj[key];
+            result[currentKey] = value;
           }
         }
       }
       return result;
     };
-    if (data.$filter.query) {
-      for (let key in data.$filter.query) {
-        if (Array.isArray(data.$filter.query[key])) {
-          query[key] = data.$filter.query[key].map((condition) => {
+    if (data.filter.query) {
+      for (let key in data.filter.query) {
+        if (Array.isArray(data.filter.query[key])) {
+          query[key] = data.filter.query[key].map((condition) => {
             let newCondition = {};
             mergeToDotNotation(condition, "", newCondition);
             return newCondition;
           });
-        } else if (typeof data.$filter.query[key] === "object" && data.$filter.query[key] !== null) {
-          mergeToDotNotation(data.$filter.query[key], key, query);
+        } else if (typeof data.filter.query[key] === "object" && data.filter.query[key] !== null) {
+          mergeToDotNotation(data.filter.query[key], key, query);
         } else {
-          query[key] = key === "_id" ? new mongodb__WEBPACK_IMPORTED_MODULE_0__/* .ObjectId */ .Vr(data.$filter.query[key]) : convertIfDate(data.$filter.query[key]);
+          query[key] = key === "_id" ? new mongodb__WEBPACK_IMPORTED_MODULE_0__/* .ObjectId */ .Vr(data.filter.query[key]) : convertIfDate(data.filter.query[key]);
         }
       }
     }
-    if (data.$filter.sort) {
-      for (let i = 0; i < data.$filter.sort.length; i++) {
-        let direction = data.$filter.sort[i].direction;
+    if (data.filter.sort) {
+      for (let i = 0; i < data.filter.sort.length; i++) {
+        let direction = data.filter.sort[i].direction;
         direction = direction === "desc" || direction === -1 ? -1 : 1;
-        sort[data.$filter.sort[i].key] = direction;
+        sort[data.filter.sort[i].key] = direction;
       }
     }
-    if (data.$filter.index) index = data.$filter.index;
-    if (data.$filter.limit) limit = data.$filter.limit;
+    if (data.filter.index) index = data.filter.index;
+    if (data.filter.limit) limit = data.filter.limit;
   }
   if (data["organization_id"])
     query["organization_id"] = data["organization_id"];
-  if (data.$filter && arrayObj) {
+  if (data.filter && arrayObj) {
     count = await arrayObj.countDocuments(query);
-    data.$filter.count = count;
+    data.filter.count = count;
   }
   return { query, sort, index, limit, count };
 }

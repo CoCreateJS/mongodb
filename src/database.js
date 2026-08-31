@@ -54,10 +54,10 @@ function database(method, data) {
                         });
 
                         for (let database of dbs.databases) {
-                            if (data.$filter && data.$filter.query) {
+                            if (data.filter && data.filter.query) {
                                 let isFilter = queryData(
                                     database,
-                                    data.$filter.query
+                                    data.filter.query
                                 );
                                 if (isFilter)
                                     databaseArray.push({

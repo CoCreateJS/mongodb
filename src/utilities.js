@@ -114,7 +114,7 @@ async function createFilter(data, arrayObj) {
         limit = 0,
         count;
 
-    if (data.$filter) {
+    if (data.filter) {
         function convertIfDate(value) {
             if (
                 typeof value === "string" &&
@@ -130,77 +130,97 @@ async function createFilter(data, arrayObj) {
             for (let key in obj) {
                 const isOperator = key.startsWith("$");
                 const currentKey = parentKey ? `${parentKey}.${key}` : key;
+                const value = obj[key];
+
+                // Logical operators can occur at the root of a condition nested
+                // inside another logical operator (for example $or -> $and).
+                // Preserve them at that level instead of creating an empty key.
+                if (isOperator && !parentKey) {
+                    result[key] = Array.isArray(value)
+                        ? value.map((condition) => {
+                              if (
+                                  condition &&
+                                  typeof condition === "object" &&
+                                  !Array.isArray(condition)
+                              ) {
+                                  return mergeToDotNotation(condition);
+                              }
+                              return convertIfDate(condition);
+                          })
+                        : value;
+                    continue;
+                }
 
                 if (
-                    obj[key] &&
-                    typeof obj[key] === "object" &&
-                    !Array.isArray(obj[key])
+                    value &&
+                    typeof value === "object" &&
+                    !Array.isArray(value)
                 ) {
                     if (isOperator) {
                         // Ensure operators are grouped under their parent key
                         result[parentKey] = result[parentKey] || {};
-                        result[parentKey][key] = obj[key];
+                        result[parentKey][key] = value;
                     } else {
                         // Recurse into nested objects
-                        mergeToDotNotation(obj[key], currentKey, result);
+                        mergeToDotNotation(value, currentKey, result);
                     }
                 } else {
                     // Assign to result, merging into dot notation if applicable
                     if (isOperator) {
                         result[parentKey] = result[parentKey] || {};
-                        result[parentKey][key] = obj[key];
+                        result[parentKey][key] = value;
                     } else {
-                        result[currentKey] = obj[key];
+                        result[currentKey] = value;
                     }
                 }
             }
             return result;
         }
 
-        if (data.$filter.query) {
-            for (let key in data.$filter.query) {
-                if (Array.isArray(data.$filter.query[key])) {
+        if (data.filter.query) {
+            for (let key in data.filter.query) {
+                if (Array.isArray(data.filter.query[key])) {
                     // Handle $or operator with an array of conditions
-                    query[key] = data.$filter.query[key].map((condition) => {
+                    query[key] = data.filter.query[key].map((condition) => {
                         let newCondition = {};
                         mergeToDotNotation(condition, "", newCondition);
                         return newCondition;
                     });
                 } else if (
-                    typeof data.$filter.query[key] === "object" &&
-                    data.$filter.query[key] !== null
+                    typeof data.filter.query[key] === "object" &&
+                    data.filter.query[key] !== null
                 ) {
                     // Handle general object conditions
-                    mergeToDotNotation(data.$filter.query[key], key, query);
+                    mergeToDotNotation(data.filter.query[key], key, query);
                 } else {
                     // Handle direct values
                     query[key] =
                         key === "_id"
-                            ? new ObjectId(data.$filter.query[key])
-                            : convertIfDate(data.$filter.query[key]);
+                            ? new ObjectId(data.filter.query[key])
+                            : convertIfDate(data.filter.query[key]);
                 }
             }
         }
 
-        if (data.$filter.sort) {
-            for (let i = 0; i < data.$filter.sort.length; i++) {
-                let direction = data.$filter.sort[i].direction;
+        if (data.filter.sort) {
+            for (let i = 0; i < data.filter.sort.length; i++) {
+                let direction = data.filter.sort[i].direction;
                 direction = direction === "desc" || direction === -1 ? -1 : 1;
 
-                sort[data.$filter.sort[i].key] = direction;
+                sort[data.filter.sort[i].key] = direction;
             }
         }
 
-        if (data.$filter.index) index = data.$filter.index;
-        if (data.$filter.limit) limit = data.$filter.limit;
+        if (data.filter.index) index = data.filter.index;
+        if (data.filter.limit) limit = data.filter.limit;
     }
 
     if (data["organization_id"])
         query["organization_id"] = data["organization_id"];
 
-    if (data.$filter && arrayObj) {
+    if (data.filter && arrayObj) {
         count = await arrayObj.countDocuments(query);
-        data.$filter.count = count;
+        data.filter.count = count;
     }
 
     return { query, sort, index, limit, count };

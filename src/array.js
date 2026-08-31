@@ -62,10 +62,10 @@ function array(method, data) {
                                 });
 
                                 for (let res of result) {
-                                    if (data.$filter && data.$filter.query) {
+                                    if (data.filter && data.filter.query) {
                                         let isFilter = queryData(
                                             res,
-                                            data.$filter.query
+                                            data.filter.query
                                         );
                                         if (isFilter)
                                             arrayArray.push({

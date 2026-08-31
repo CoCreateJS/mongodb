@@ -50,7 +50,7 @@ function object(method, data) {
                             data[type] = [data[type]];
 
                         let isFilter;
-                        if (data.$filter) isFilter = true;
+                        if (data.filter) isFilter = true;
                         // ONLY splice dummy filter object when data[type] is strictly empty
                         if (isFilter && !data[type].length)
                             data[type].splice(0, 0, {
@@ -64,8 +64,8 @@ function object(method, data) {
                             globalUpdate = {},
                             options = {};
 
-                        if (data.$filter && data.$filter.key)
-                            projection = data.$filter.key;
+                        if (data.filter && data.filter.key)
+                            projection = data.filter.key;
 
                         if (method === "update")
                             createUpdate(globalUpdate, options, data, true);
@@ -96,11 +96,11 @@ function object(method, data) {
                             delete data[type][i].$database;
                             delete data[type][i].$array;
 
-                            if (method !== "create" && data[type][i].$filter) {
+                            if (method !== "create" && data[type][i].filter) {
                                 isFilter = true;
-                                reference["$filter"] = data[type][i].$filter;
+                                reference["filter"] = data[type][i].filter;
                                 filter = await createFilter(
-                                    { $filter: data[type][i].$filter },
+                                    { filter: data[type][i].filter },
                                     arrayObj
                                 );
                             }
@@ -216,10 +216,10 @@ function object(method, data) {
                                                 organization_id: data.organization_id
                                             });
 
-                                            if (data.$filter && data.$filter.search) {
+                                            if (data.filter && data.filter.search) {
                                                 let isMatch = searchData(
                                                     document,
-                                                    data.$filter.search
+                                                    data.filter.search
                                                 );
                                                 if (!isMatch) continue;
                                             }
