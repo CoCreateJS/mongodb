@@ -12,6 +12,11 @@ import {
     errorHandler 
 } from "./utilities.js";
 
+function includesReference(value, expected) {
+    const values = Array.isArray(value) ? value : [value];
+    return values.includes(expected);
+}
+
 function object(method, data) {
     const storageName = data.storageConfig?.name;
     return new Promise(
@@ -229,21 +234,48 @@ function object(method, data) {
                                                 let object = data[type].find(
                                                     (obj) =>
                                                         obj._id &&
-                                                        obj._id.toString() === document._id.toString()
+                                                        obj._id.toString() === document._id.toString() &&
+                                                        includesReference(obj.$database, database) &&
+                                                        includesReference(obj.$array, array)
                                                 );
+                                                let readDocument = document;
 
                                                 if (object && object.$storage && object.modified && object.modified.on) {
-                                                    if (document.modified && new Date(object.modified.on) > new Date(document.modified.on)) {
-                                                        object = { ...document, ...object };
+                                                    const sourceModified = new Date(object.modified.on);
+                                                    const targetModified = document.modified?.on
+                                                        ? new Date(document.modified.on)
+                                                        : null;
+                                                    if (
+                                                        !Number.isNaN(sourceModified.getTime()) &&
+                                                        (!targetModified ||
+                                                            Number.isNaN(targetModified.getTime()) ||
+                                                            sourceModified > targetModified)
+                                                    ) {
+                                                        const synchronizedDocument = { ...document, ...object };
+                                                        for (const key of [
+                                                            "$storage",
+                                                            "$database",
+                                                            "$array",
+                                                            "filter",
+                                                            "isFilter"
+                                                        ]) delete synchronizedDocument[key];
+                                                        for (const key of ["created", "modified"]) {
+                                                            if (synchronizedDocument[key]?.on)
+                                                                synchronizedDocument[key] = {
+                                                                    ...synchronizedDocument[key],
+                                                                    on: new Date(synchronizedDocument[key].on)
+                                                                };
+                                                        }
                                                         let docUpdate = {};
                                                         let docOptions = {};
-                                                        createUpdate(docUpdate, docOptions, object);
+                                                        createUpdate(docUpdate, docOptions, synchronizedDocument);
                                                         let updateResult = await arrayObj.updateOne(
                                                             { _id: new ObjectId(document._id) },
                                                             docUpdate,
                                                             docOptions
                                                         );
-                                                        
+                                                        readDocument = synchronizedDocument;
+
                                                         process.emit("usage", {
                                                             type: "ingress",
                                                             data: updateResult,
@@ -251,8 +283,8 @@ function object(method, data) {
                                                         });
                                                     }
                                                 }
-                                                
-                                                let readDoc = { ...document, ...reference };
+
+                                                let readDoc = { ...readDocument, ...reference };
                                                 delete readDoc.isFilter;
                                                 
                                                 const docKey = `${database}:${array}:${readDoc._id}`;

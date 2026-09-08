@@ -234,6 +234,26 @@ function parseRegExp(regExpString) {
     };
 }
 
+function getReferences(value) {
+    if (value === undefined || value === null) return [];
+    return Array.isArray(value) ? value : [value];
+}
+
+function hasSharedReference(existing, incoming, key) {
+    const existingReferences = getReferences(existing[key]);
+    if (!existingReferences.length) return true;
+    const incomingReferences = getReferences(incoming[key]);
+    return existingReferences.some((value) => incomingReferences.includes(value));
+}
+
+function isSameRecord(existing, incoming, key) {
+    return existing[key] !== undefined &&
+        incoming[key] !== undefined &&
+        existing[key].toString() === incoming[key].toString() &&
+        hasSharedReference(existing, incoming, "$database") &&
+        hasSharedReference(existing, incoming, "$array");
+}
+
 function createData(data, array, type) {
     if (
         data[type] &&
@@ -253,25 +273,24 @@ function createData(data, array, type) {
     else {
         for (let i = 0; i < array.length; i++) {
             const matchIndex = data[type].findIndex(
-                (item) => item[key] === array[i][key]
+                (item) => type === "object"
+                    ? isSameRecord(item, array[i], key)
+                    : item[key] === array[i][key]
             );
             if (matchIndex !== -1) {
                 for (let $type of ["$storage", "$database", "$array"]) {
                     if (!data[type][matchIndex][$type])
                         data[type][matchIndex][$type] = [];
-                    if (!Array.isArray(data[type][matchIndex][$type])) {
-                        data[type][matchIndex][$type] = [
-                            data[type][matchIndex][$type]
-                        ];
+                    if (!Array.isArray(data[type][matchIndex][$type]))
+                        data[type][matchIndex][$type] = [data[type][matchIndex][$type]];
+                    const references = Array.isArray(array[i][$type])
+                        ? array[i][$type]
+                        : [array[i][$type]];
+                    for (const reference of references) {
                         if (
-                            !data[type][matchIndex][$type].includes(
-                                array[i][$type]
-                            )
-                        ) {
-                            data[type][matchIndex][$type].push(array[i][$type]);
-                        }
-                    } else {
-                        data[type][matchIndex][$type].push(array[i][$type]);
+                            reference !== undefined &&
+                            !data[type][matchIndex][$type].includes(reference)
+                        ) data[type][matchIndex][$type].push(reference);
                     }
                     delete array[i][$type];
                 }
