@@ -919,7 +919,7 @@ function includesReference(value, expected) {
   return values.includes(expected);
 }
 function object(method, data) {
-  const storageName = data.storageConfig?.name;
+  const storageName = data.storageConfig?.name || "mongodb";
   return new Promise(
     async (resolve, reject) => {
       try {
@@ -937,29 +937,45 @@ function object(method, data) {
           for (let array of arrays) {
             const db = client.db(database);
             const arrayObj = db.collection(array);
-            const reference = {
-              $storage: storageName,
-              $database: database,
-              $array: array
-            };
             if (!data[type]) data[type] = [];
             else if (typeof data[type] === "string")
               data[type] = [{ _id: data[type] }];
             else if (!Array.isArray(data[type]))
               data[type] = [data[type]];
-            let isFilter;
-            if (data.filter) isFilter = true;
+            for (let i = 0; i < data[type].length; i++) {
+              if (!Array.isArray(data[type][i])) continue;
+              data[type].splice(i, 1, ...data[type][i]);
+              i--;
+            }
+            let isFilter = Boolean(
+              data.filter && data.filter.isFilter !== false
+            );
+            const filterStorage = isFilter ? (0,_utilities_js__WEBPACK_IMPORTED_MODULE_4__.getFilterStorage)(
+              data.filter,
+              storageName,
+              database,
+              array
+            ) : void 0;
+            const filterStartingIndex = filterStorage?.index ?? data.filter?.startingIndex ?? data.filter?.index ?? 0;
+            const documentsStartingLength = documents.length;
+            if (filterStorage)
+              filterStorage.startingIndex = filterStartingIndex;
             if (isFilter && !data[type].length)
               data[type].splice(0, 0, {
                 isFilter: "isEmptyObjectFilter"
               });
-            let filter = await (0,_utilities_js__WEBPACK_IMPORTED_MODULE_4__.createFilter)(data, arrayObj);
+            let filter = await (0,_utilities_js__WEBPACK_IMPORTED_MODULE_4__.createFilter)(
+              data,
+              arrayObj,
+              filterStorage
+            );
             let projections = {}, projection = {}, globalUpdate = {}, options = {};
             if (data.filter && data.filter.key)
               projection = data.filter.key;
             if (method === "update")
               createUpdate(globalUpdate, options, data, true);
             const seenDocKeys = /* @__PURE__ */ new Set();
+            const sourceObjects = [];
             for (let i = 0; i < data[type].length; i++) {
               let $storage = data[type][i].$storage || [];
               let $database = data[type][i].$database || [];
@@ -976,12 +992,22 @@ function object(method, data) {
               if (!$database.includes(database))
                 $database.push(database);
               if (!$array.includes(array)) $array.push(array);
+              const objectReference = {
+                $storage,
+                $database,
+                $array
+              };
+              const sourceObject = {
+                ...data[type][i],
+                ...objectReference
+              };
+              sourceObjects.push(sourceObject);
               delete data[type][i].$storage;
               delete data[type][i].$database;
               delete data[type][i].$array;
               if (method !== "create" && data[type][i].filter) {
                 isFilter = true;
-                reference["filter"] = data[type][i].filter;
+                objectReference["filter"] = data[type][i].filter;
                 filter = await (0,_utilities_js__WEBPACK_IMPORTED_MODULE_4__.createFilter)(
                   { filter: data[type][i].filter },
                   arrayObj
@@ -1061,7 +1087,10 @@ function object(method, data) {
                       data[type][i]
                     );
                     data[type][i]._id = result.insertedId.toString();
-                    let createDoc = { ...data[type][i], ...reference };
+                    let createDoc = {
+                      ...data[type][i],
+                      ...objectReference
+                    };
                     delete createDoc.isFilter;
                     const docKey = `${database}:${array}:${createDoc._id}`;
                     if (!seenDocKeys.has(docKey)) {
@@ -1071,9 +1100,13 @@ function object(method, data) {
                   } else {
                     let cursor = arrayObj.find(query, { projection });
                     if (sort && Object.keys(sort).length > 0) cursor = cursor.sort(sort);
-                    if (index) cursor = cursor.skip(index);
-                    if (limit) cursor = cursor.limit(limit);
+                    const search = data[type][i].filter?.search || data.filter?.search;
+                    const hasSearch = Boolean(search?.length);
+                    if (!hasSearch && index) cursor = cursor.skip(index);
+                    if (!hasSearch && limit) cursor = cursor.limit(limit);
                     let hasDocuments = false;
+                    let matchedDocuments = 0;
+                    let returnedDocuments = 0;
                     for await (const document of cursor) {
                       hasDocuments = true;
                       process.emit("usage", {
@@ -1081,16 +1114,18 @@ function object(method, data) {
                         data: document,
                         organization_id: data.organization_id
                       });
-                      if (data.filter && data.filter.search) {
-                        let isMatch = (0,_cocreate_utils__WEBPACK_IMPORTED_MODULE_3__.searchData)(
-                          document,
-                          data.filter.search
-                        );
+                      if (hasSearch) {
+                        const isMatch = (0,_cocreate_utils__WEBPACK_IMPORTED_MODULE_3__.searchData)(document, search);
                         if (!isMatch) continue;
+                        if (matchedDocuments < index) {
+                          matchedDocuments++;
+                          continue;
+                        }
+                        matchedDocuments++;
                       }
                       if (method === "read") {
                         document._id = document._id.toString();
-                        let object2 = data[type].find(
+                        let object2 = sourceObjects.find(
                           (obj) => obj._id && obj._id.toString() === document._id.toString() && includesReference(obj.$database, database) && includesReference(obj.$array, array)
                         );
                         let readDocument = document;
@@ -1129,7 +1164,10 @@ function object(method, data) {
                             });
                           }
                         }
-                        let readDoc = { ...readDocument, ...reference };
+                        let readDoc = {
+                          ...readDocument,
+                          ...objectReference
+                        };
                         delete readDoc.isFilter;
                         const docKey = `${database}:${array}:${readDoc._id}`;
                         if (!seenDocKeys.has(docKey)) {
@@ -1191,7 +1229,7 @@ function object(method, data) {
                         let docToPush = {
                           ...document,
                           ...data[type][i],
-                          ...reference,
+                          ...objectReference,
                           _id: document._id.toString()
                         };
                         delete docToPush.isFilter;
@@ -1200,6 +1238,10 @@ function object(method, data) {
                           seenDocKeys.add(docKey);
                           documents.push(docToPush);
                         }
+                      }
+                      if (hasSearch && limit) {
+                        returnedDocuments++;
+                        if (returnedDocuments >= limit) break;
                       }
                     }
                     if (!hasDocuments && method === "update" && (data.upsert || options.upsert)) {
@@ -1216,7 +1258,7 @@ function object(method, data) {
                       });
                       let upsertDoc = {
                         ...data[type][i],
-                        ...reference,
+                        ...objectReference,
                         _id: upsertId.toString()
                       };
                       delete upsertDoc.isFilter;
@@ -1231,6 +1273,9 @@ function object(method, data) {
                   ;(0,_utilities_js__WEBPACK_IMPORTED_MODULE_4__.errorHandler)(data, error, database, array);
                 }
               }
+            }
+            if (filterStorage) {
+              filterStorage.index = filterStartingIndex + (documents.length - documentsStartingLength);
             }
           }
         }
@@ -1386,6 +1431,7 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony export */   createFilter: () => (/* binding */ createFilter),
 /* harmony export */   dbClient: () => (/* binding */ dbClient),
 /* harmony export */   errorHandler: () => (/* binding */ errorHandler),
+/* harmony export */   getFilterStorage: () => (/* binding */ getFilterStorage),
 /* harmony export */   parseRegExp: () => (/* binding */ parseRegExp)
 /* harmony export */ });
 /* harmony import */ var mongodb__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! mongodb */ "./node_modules/mongodb/lib/index.js");
@@ -1446,7 +1492,19 @@ process.on("orgDeleted", (organization_id) => {
     }, 5e3);
   }
 });
-async function createFilter(data, arrayObj) {
+function getFilterStorage(filter, storage, database, array) {
+  if (!filter) return;
+  if (!Array.isArray(filter.storages)) filter.storages = [];
+  let metadata = filter.storages.find(
+    (item) => item.storage === storage && item.database === database && item.array === array
+  );
+  if (!metadata) {
+    metadata = { storage, database, array };
+    filter.storages.push(metadata);
+  }
+  return metadata;
+}
+async function createFilter(data, arrayObj, filterStorage) {
   let query = {}, sort = {}, index = 0, limit = 0, count;
   if (data.filter) {
     let convertIfDate = function(value) {
@@ -1508,14 +1566,18 @@ async function createFilter(data, arrayObj) {
         sort[data.filter.sort[i].key] = direction;
       }
     }
-    if (data.filter.index) index = data.filter.index;
+    if (filterStorage?.index !== void 0)
+      index = filterStorage.index;
+    else if (data.filter.startingIndex !== void 0)
+      index = data.filter.startingIndex;
+    else if (data.filter.index) index = data.filter.index;
     if (data.filter.limit) limit = data.filter.limit;
   }
   if (data["organization_id"])
     query["organization_id"] = data["organization_id"];
   if (data.filter && arrayObj) {
     count = await arrayObj.countDocuments(query);
-    data.filter.count = count;
+    if (filterStorage) filterStorage.count = count;
   }
   return { query, sort, index, limit, count };
 }
@@ -1542,7 +1604,7 @@ function isSameRecord(existing, incoming, key) {
 function createData(data, array, type) {
   if (data[type] && data[type][0] && data[type][0].isFilter === "isEmptyObjectFilter") {
     data[type].shift();
-    data.isFilter = true;
+    data.filter.isFilter = true;
   }
   let key = "_id";
   if (type !== "object") key = "name";
@@ -9612,7 +9674,7 @@ class CryptoConnection extends Connection {
                 encrypted.indexes[offset].key = index;
             }
         }
-        const encryptedResponse = await super.command(ns, encrypted, options, 
+        const encryptedResponse = await super.command(ns, encrypted, options,
         // Eventually we want to require `responseType` which means we would satisfy `T` as the return type.
         // In the meantime, we want encryptedResponse to always be _at least_ a MongoDBResponse if not a more specific subclass
         // So that we can ensure we have access to the on-demand APIs for decorate response
@@ -10091,7 +10153,7 @@ class ConnectionPool extends mongo_types_1.TypedEventEmitter {
         }, error => {
             this.pending--;
             this.server.handleError(error);
-            this.emitAndLog(ConnectionPool.CONNECTION_CLOSED, new connection_pool_events_1.ConnectionClosedEvent(this, { id: connectOptions.id, serviceId: undefined }, 'error', 
+            this.emitAndLog(ConnectionPool.CONNECTION_CLOSED, new connection_pool_events_1.ConnectionClosedEvent(this, { id: connectOptions.id, serviceId: undefined }, 'error',
             // TODO(NODE-5192): Remove this cast
             error));
             if (error instanceof error_1.MongoNetworkError || error instanceof error_1.MongoServerError) {
@@ -10180,7 +10242,7 @@ class ConnectionPool extends mongo_types_1.TypedEventEmitter {
                 }
                 else {
                     if (err) {
-                        this.emitAndLog(ConnectionPool.CONNECTION_CHECK_OUT_FAILED, 
+                        this.emitAndLog(ConnectionPool.CONNECTION_CHECK_OUT_FAILED,
                         // TODO(NODE-5192): Remove this cast
                         new connection_pool_events_1.ConnectionCheckOutFailedEvent(this, 'connectionError', waitQueueMember.checkoutTime, err));
                         waitQueueMember.reject(err);
@@ -11276,7 +11338,7 @@ const BSONElementOffset = {
 };
 /** @internal */
 class OnDemandDocument {
-    constructor(bson, offset = 0, isArray = false, 
+    constructor(bson, offset = 0, isArray = false,
     /** If elements was already calculated */
     elements) {
         /**
@@ -14749,7 +14811,7 @@ class ReadableCursorStream extends stream_1.Readable {
                 }
                 this._readInProgress = false;
             }
-        }, 
+        },
         // error from next()
         err => {
             // NOTE: This is questionable, but we have a test backing the behavior. It seems the
@@ -25795,7 +25857,7 @@ function loadBalancerFilter(server) {
     return server.type === common_1.ServerType.LoadBalancer;
 }
 function isDeprioritizedFactory(deprioritized) {
-    return server => 
+    return server =>
     // if any deprioritized servers equal the server, here we are.
     !deprioritized.has(server);
 }
@@ -39797,7 +39859,7 @@ module.exports = /*#__PURE__*/JSON.parse('[[[0,44],2],[[45,46],2],[47,2],[[48,57
 /******/ 		// no module.loaded needed
 /******/ 		exports: {}
 /******/ 	};
-/******/ 
+/******/
 /******/ 	// Execute the module function
 /******/ 	if (!(moduleId in __webpack_modules__)) {
 /******/ 		delete __webpack_module_cache__[moduleId];
@@ -39806,11 +39868,11 @@ module.exports = /*#__PURE__*/JSON.parse('[[[0,44],2],[[45,46],2],[47,2],[[48,57
 /******/ 		throw e;
 /******/ 	}
 /******/ 	__webpack_modules__[moduleId].call(module.exports, module, module.exports, __webpack_require__);
-/******/ 
+/******/
 /******/ 	// Return the exports of the module
 /******/ 	return module.exports;
 /******/ }
-/******/ 
+/******/
 /************************************************************************/
 /******/ /* webpack/runtime/define property getters */
 /******/ // define getter/value functions for harmony exports
@@ -39821,10 +39883,10 @@ module.exports = /*#__PURE__*/JSON.parse('[[[0,44],2],[[45,46],2],[47,2],[[48,57
 /******/ 		}
 /******/ 	}
 /******/ };
-/******/ 
+/******/
 /******/ /* webpack/runtime/hasOwnProperty shorthand */
 /******/ __webpack_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop));
-/******/ 
+/******/
 /******/ /* webpack/runtime/make namespace object */
 /******/ // define __esModule on exports
 /******/ __webpack_require__.r = (exports) => {

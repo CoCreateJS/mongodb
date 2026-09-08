@@ -107,7 +107,26 @@ process.on('orgDeleted', (organization_id) => {
     }
 });
 
-async function createFilter(data, arrayObj) {
+function getFilterStorage(filter, storage, database, array) {
+    if (!filter) return;
+    if (!Array.isArray(filter.storages)) filter.storages = [];
+
+    let metadata = filter.storages.find(
+        (item) =>
+            item.storage === storage &&
+            item.database === database &&
+            item.array === array
+    );
+
+    if (!metadata) {
+        metadata = { storage, database, array };
+        filter.storages.push(metadata);
+    }
+
+    return metadata;
+}
+
+async function createFilter(data, arrayObj, filterStorage) {
     let query = {},
         sort = {},
         index = 0,
@@ -211,7 +230,11 @@ async function createFilter(data, arrayObj) {
             }
         }
 
-        if (data.filter.index) index = data.filter.index;
+        if (filterStorage?.index !== undefined)
+            index = filterStorage.index;
+        else if (data.filter.startingIndex !== undefined)
+            index = data.filter.startingIndex;
+        else if (data.filter.index) index = data.filter.index;
         if (data.filter.limit) limit = data.filter.limit;
     }
 
@@ -220,7 +243,7 @@ async function createFilter(data, arrayObj) {
 
     if (data.filter && arrayObj) {
         count = await arrayObj.countDocuments(query);
-        data.filter.count = count;
+        if (filterStorage) filterStorage.count = count;
     }
 
     return { query, sort, index, limit, count };
@@ -261,7 +284,7 @@ function createData(data, array, type) {
         data[type][0].isFilter === "isEmptyObjectFilter"
     ) {
         data[type].shift();
-        data.isFilter = true;
+        data.filter.isFilter = true;
     }
 
     let key = "_id";
@@ -328,6 +351,7 @@ function errorHandler(data, error, database, array) {
 
 export {
     dbClient,
+    getFilterStorage,
     createFilter,
     parseRegExp,
     createData,

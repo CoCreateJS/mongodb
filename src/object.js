@@ -7,6 +7,7 @@ import {
 
 import { 
     dbClient, 
+    getFilterStorage,
     createFilter, 
     createData,
     errorHandler 
@@ -18,7 +19,7 @@ function includesReference(value, expected) {
 }
 
 function object(method, data) {
-    const storageName = data.storageConfig?.name;
+    const storageName = data.storageConfig?.name || "mongodb";
     return new Promise(
         async (resolve, reject) => {
             try {
@@ -42,27 +43,49 @@ function object(method, data) {
                     for (let array of arrays) {
                         const db = client.db(database);
                         const arrayObj = db.collection(array);
-                        const reference = {
-                            $storage: storageName,
-                            $database: database,
-                            $array: array
-                        };
-
                         if (!data[type]) data[type] = [];
                         else if (typeof data[type] === "string")
                             data[type] = [{ _id: data[type] }];
                         else if (!Array.isArray(data[type]))
                             data[type] = [data[type]];
 
-                        let isFilter;
-                        if (data.filter) isFilter = true;
+                        for (let i = 0; i < data[type].length; i++) {
+                            if (!Array.isArray(data[type][i])) continue;
+                            data[type].splice(i, 1, ...data[type][i]);
+                            i--;
+                        }
+
+                        let isFilter = Boolean(
+                            data.filter && data.filter.isFilter !== false
+                        );
+                        const filterStorage = isFilter
+                            ? getFilterStorage(
+                                  data.filter,
+                                  storageName,
+                                  database,
+                                  array
+                              )
+                            : undefined;
+                        const filterStartingIndex =
+                            filterStorage?.index ??
+                            data.filter?.startingIndex ??
+                            data.filter?.index ??
+                            0;
+                        const documentsStartingLength = documents.length;
+
+                        if (filterStorage)
+                            filterStorage.startingIndex = filterStartingIndex;
                         // ONLY splice dummy filter object when data[type] is strictly empty
                         if (isFilter && !data[type].length)
                             data[type].splice(0, 0, {
                                 isFilter: "isEmptyObjectFilter"
                             });
 
-                        let filter = await createFilter(data, arrayObj);
+                        let filter = await createFilter(
+                            data,
+                            arrayObj,
+                            filterStorage
+                        );
 
                         let projections = {},
                             projection = {},
@@ -77,6 +100,7 @@ function object(method, data) {
 
                         // Track processed document IDs to prevent double file / duplicate document returns
                         const seenDocKeys = new Set();
+                        const sourceObjects = [];
 
                         for (let i = 0; i < data[type].length; i++) {
                             let $storage = data[type][i].$storage || [];
@@ -97,13 +121,24 @@ function object(method, data) {
                                 $database.push(database);
                             if (!$array.includes(array)) $array.push(array);
 
+                            const objectReference = {
+                                $storage,
+                                $database,
+                                $array
+                            };
+                            const sourceObject = {
+                                ...data[type][i],
+                                ...objectReference
+                            };
+                            sourceObjects.push(sourceObject);
+
                             delete data[type][i].$storage;
                             delete data[type][i].$database;
                             delete data[type][i].$array;
 
                             if (method !== "create" && data[type][i].filter) {
                                 isFilter = true;
-                                reference["filter"] = data[type][i].filter;
+                                objectReference["filter"] = data[type][i].filter;
                                 filter = await createFilter(
                                     { filter: data[type][i].filter },
                                     arrayObj
@@ -196,7 +231,10 @@ function object(method, data) {
                                         data[type][i]._id =
                                             result.insertedId.toString();
                                         
-                                        let createDoc = { ...data[type][i], ...reference };
+                                        let createDoc = {
+                                            ...data[type][i],
+                                            ...objectReference
+                                        };
                                         delete createDoc.isFilter;
                                         
                                         const docKey = `${database}:${array}:${createDoc._id}`;
@@ -207,10 +245,16 @@ function object(method, data) {
                                     } else {
                                         let cursor = arrayObj.find(query, { projection });
                                         if (sort && Object.keys(sort).length > 0) cursor = cursor.sort(sort);
-                                        if (index) cursor = cursor.skip(index);
-                                        if (limit) cursor = cursor.limit(limit);
+                                        const search =
+                                            data[type][i].filter?.search ||
+                                            data.filter?.search;
+                                        const hasSearch = Boolean(search?.length);
+                                        if (!hasSearch && index) cursor = cursor.skip(index);
+                                        if (!hasSearch && limit) cursor = cursor.limit(limit);
 
                                         let hasDocuments = false;
+                                        let matchedDocuments = 0;
+                                        let returnedDocuments = 0;
 
                                         for await (const document of cursor) {
                                             hasDocuments = true;
@@ -221,17 +265,21 @@ function object(method, data) {
                                                 organization_id: data.organization_id
                                             });
 
-                                            if (data.filter && data.filter.search) {
-                                                let isMatch = searchData(
-                                                    document,
-                                                    data.filter.search
-                                                );
+                                            if (hasSearch) {
+                                                const isMatch = searchData(document, search);
                                                 if (!isMatch) continue;
+
+                                                if (matchedDocuments < index) {
+                                                    matchedDocuments++;
+                                                    continue;
+                                                }
+
+                                                matchedDocuments++;
                                             }
 
                                             if (method === "read") {
                                                 document._id = document._id.toString();
-                                                let object = data[type].find(
+                                                let object = sourceObjects.find(
                                                     (obj) =>
                                                         obj._id &&
                                                         obj._id.toString() === document._id.toString() &&
@@ -284,7 +332,10 @@ function object(method, data) {
                                                     }
                                                 }
 
-                                                let readDoc = { ...readDocument, ...reference };
+                                                let readDoc = {
+                                                    ...readDocument,
+                                                    ...objectReference
+                                                };
                                                 delete readDoc.isFilter;
                                                 
                                                 const docKey = `${database}:${array}:${readDoc._id}`;
@@ -354,7 +405,7 @@ function object(method, data) {
                                                 let docToPush = {
                                                     ...document,
                                                     ...data[type][i],
-                                                    ...reference,
+                                                    ...objectReference,
                                                     _id: document._id.toString()
                                                 };
                                                 delete docToPush.isFilter;
@@ -364,6 +415,11 @@ function object(method, data) {
                                                     seenDocKeys.add(docKey);
                                                     documents.push(docToPush);
                                                 }
+                                            }
+
+                                            if (hasSearch && limit) {
+                                                returnedDocuments++;
+                                                if (returnedDocuments >= limit) break;
                                             }
                                         }
 
@@ -383,7 +439,7 @@ function object(method, data) {
 
                                             let upsertDoc = {
                                                 ...data[type][i],
-                                                ...reference,
+                                                ...objectReference,
                                                 _id: upsertId.toString()
                                             };
                                             delete upsertDoc.isFilter;
@@ -399,6 +455,12 @@ function object(method, data) {
                                     errorHandler(data, error, database, array);
                                 }
                             }
+                        }
+
+                        if (filterStorage) {
+                            filterStorage.index =
+                                filterStartingIndex +
+                                (documents.length - documentsStartingLength);
                         }
                     }
                 }
