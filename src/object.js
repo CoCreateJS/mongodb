@@ -18,6 +18,18 @@ function includesReference(value, expected) {
     return values.includes(expected);
 }
 
+function normalizeSearchDocument(document) {
+    return Object.fromEntries(
+        Object.entries(document).map(([key, value]) => {
+            if (value === null || value === undefined) return [key, ""];
+            if (typeof value === "string" || typeof value === "object") {
+                return [key, value];
+            }
+            return [key, String(value)];
+        })
+    );
+}
+
 function object(method, data) {
     const storageName = data.storageConfig?.name || "mongodb";
     return new Promise(
@@ -244,7 +256,8 @@ function object(method, data) {
                                         }
                                     } else {
                                         let cursor = arrayObj.find(query, { projection });
-                                        if (sort && Object.keys(sort).length > 0) cursor = cursor.sort(sort);
+                                        if (sort && Object.keys(sort).length > 0)
+                                            cursor = cursor.sort(sort).allowDiskUse(true);
                                         const search =
                                             data[type][i].filter?.search ||
                                             data.filter?.search;
@@ -266,7 +279,10 @@ function object(method, data) {
                                             });
 
                                             if (hasSearch) {
-                                                const isMatch = searchData(document, search);
+                                                const isMatch = searchData(
+                                                    normalizeSearchDocument(document),
+                                                    search
+                                                );
                                                 if (!isMatch) continue;
 
                                                 if (matchedDocuments < index) {
