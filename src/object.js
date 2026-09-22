@@ -160,14 +160,11 @@ function object(method, data) {
                             let { query, sort, index, limit } = filter;
 
                             if (method === "create") {
-                                if (typeof replaceArray === 'function') {
-                                    data[type][i] = replaceArray(data[type][i]);
-                                }
                                 data[type][i] = dotNotationToObject(
                                     data[type][i]
                                 );
-                                data[type][i]["organization_id"] =
-                                    data["organization_id"];
+                                if (!Object.hasOwn(data[type][i], "organization_id"))
+                                    data[type][i].organization_id = data.organization_id;
                                 const auditOn = new Date(data.timeStamp);
                                 const auditBy = data.user_id || data.clientId;
                                 data[type][i]["created"] = {
@@ -189,8 +186,8 @@ function object(method, data) {
                                         data[type][i].modified.on
                                     );
 
-                                data[type][i].organization_id =
-                                    data.organization_id;
+                                if (!Object.hasOwn(data[type][i], "organization_id"))
+                                    data[type][i].organization_id = data.organization_id;
                                 createUpdate(update, options, data[type][i]);
                             }
 
