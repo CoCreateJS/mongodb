@@ -25,7 +25,7 @@ const organizations = {};
  * @returns {Promise<MongoClient>} Resolved MongoDB Client connection
  */
 async function dbClient(data) {
-    const storageUrl = data.storageConfig?.url
+    const storageUrl = data.storageConfig?.connectionString || data.storageConfig?.url;
     if (storageUrl) {
         if (!organizations[data.organization_id]) {
             organizations[data.organization_id] = {};
