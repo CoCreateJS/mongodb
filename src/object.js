@@ -579,13 +579,17 @@ function createUpdate(update, options, data, isGlobal) {
             operator === "$unset" ||
             operator === "$slice"
         ) {
+            const removeFromArray = operator !== "$unset";
             operator = "$unset";
             updates[key] = 1;
             const pullkey = key.split(".");
             pullkey.shift();
             pullkey.pop();
-            if (!update["$pull"]) update["$pull"] = {};
-            update["$pull"][pullkey.join(".")] = null;
+            const pullPath = pullkey.join(".");
+            if (removeFromArray && pullPath) {
+                if (!update["$pull"]) update["$pull"] = {};
+                update["$pull"][pullPath] = null;
+            }
         } else if (operator === "$pop") {
             key = arrayKey;
             updates[key] = index || 1;

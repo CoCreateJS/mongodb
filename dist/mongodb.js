@@ -205,23 +205,24 @@ function isEqualValue(value1, value2) {
 }
 function queryMatch(data, query) {
   for (let key of Object.keys(query)) {
+    const queryEntry = query[key];
     let dataValue;
     try {
       dataValue = (0,_getValueFromObject_js__WEBPACK_IMPORTED_MODULE_0__/* .getValueFromObject */ .r)(data, key, true);
     } catch (error) {
       return false;
     }
-    if (typeof query[key] === "string" || typeof query[key] === "number" || typeof query[key] === "boolean") {
-      if (Array.isArray(dataValue)) return dataValue.includes(query[key]);
-      else return dataValue === query[key];
-    } else if (Array.isArray(query[key])) {
+    if (queryEntry === null || typeof queryEntry !== "object") {
+      if (Array.isArray(dataValue)) return dataValue.includes(queryEntry);
+      else return Object.is(dataValue, queryEntry);
+    } else if (Array.isArray(queryEntry)) {
       if (Array.isArray(dataValue)) {
-        return isEqualArray(dataValue, query[key]);
+        return isEqualArray(dataValue, queryEntry);
       } else {
         return false;
       }
     } else {
-      for (let property of Object.keys(query[key])) {
+      for (let property of Object.keys(queryEntry)) {
         if (property === "$options") continue;
         if (!property.startsWith("$")) {
           if (typeof dataValue !== "object") {
@@ -232,7 +233,7 @@ function queryMatch(data, query) {
               { [property]: query[key][property] }
             );
         } else {
-          let queryValue = query[key][property];
+          let queryValue = queryEntry[property];
           if ((0,_isValidDate_js__WEBPACK_IMPORTED_MODULE_1__/* .isValidDate */ .v)(queryValue) && (0,_isValidDate_js__WEBPACK_IMPORTED_MODULE_1__/* .isValidDate */ .v)(dataValue)) {
             queryValue = new Date(queryValue);
             dataValue = new Date(dataValue);
@@ -263,6 +264,7 @@ function queryMatch(data, query) {
               queryStatus = dataValue >= queryValue;
               break;
             case "$in":
+              queryValue = Array.isArray(queryValue) ? queryValue : [queryValue];
               if (Array.isArray(dataValue)) {
                 queryStatus = dataValue.some(
                   (element) => queryValue.includes(element)
@@ -272,6 +274,7 @@ function queryMatch(data, query) {
               }
               break;
             case "$nin":
+              queryValue = Array.isArray(queryValue) ? queryValue : [queryValue];
               if (Array.isArray(dataValue)) {
                 queryStatus = !dataValue.some(
                   (element) => queryValue.includes(element)
@@ -792,7 +795,7 @@ function array(method, data) {
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (array);
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, [
-/* harmony export */   "A", 0, /* export default binding */ __WEBPACK_DEFAULT_EXPORT__
+/* harmony export */   "A", 0, __WEBPACK_DEFAULT_EXPORT__
 /* harmony export */ ]);
 
 
@@ -875,7 +878,7 @@ function database(method, data) {
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (database);
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, [
-/* harmony export */   "A", 0, /* export default binding */ __WEBPACK_DEFAULT_EXPORT__
+/* harmony export */   "A", 0, __WEBPACK_DEFAULT_EXPORT__
 /* harmony export */ ]);
 
 
@@ -1353,13 +1356,17 @@ function createUpdate(update, options, data, isGlobal) {
         }
       else updates[key] = data[originalKey].replace(/\[(\d+)\]/g, ".$1");
     } else if (operator === "$delete" || operator === "$unset" || operator === "$slice") {
+      const removeFromArray = operator !== "$unset";
       operator = "$unset";
       updates[key] = 1;
       const pullkey = key.split(".");
       pullkey.shift();
       pullkey.pop();
-      if (!update["$pull"]) update["$pull"] = {};
-      update["$pull"][pullkey.join(".")] = null;
+      const pullPath = pullkey.join(".");
+      if (removeFromArray && pullPath) {
+        if (!update["$pull"]) update["$pull"] = {};
+        update["$pull"][pullPath] = null;
+      }
     } else if (operator === "$pop") {
       key = arrayKey;
       updates[key] = index || 1;
@@ -1409,7 +1416,7 @@ function replaceArray(data = {}) {
 /* harmony default export */ const __WEBPACK_DEFAULT_EXPORT__ = (object);
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, [
-/* harmony export */   "A", 0, /* export default binding */ __WEBPACK_DEFAULT_EXPORT__
+/* harmony export */   "A", 0, __WEBPACK_DEFAULT_EXPORT__
 /* harmony export */ ]);
 
 
@@ -1430,7 +1437,7 @@ function replaceArray(data = {}) {
 
 const organizations = {};
 async function dbClient(data) {
-  const storageUrl = data.storageConfig?.url;
+  const storageUrl = data.storageConfig?.connectionString || data.storageConfig?.url;
   if (storageUrl) {
     if (!organizations[data.organization_id]) {
       organizations[data.organization_id] = {};
@@ -39491,7 +39498,7 @@ async function send(data) {
 /* harmony default export */ const src = ({ send });
 
 /* harmony export */ __webpack_require__.d(__webpack_exports__, [
-/* harmony export */   "A", 0, /* export default binding */ src
+/* harmony export */   "A", 0, src
 /* harmony export */ ]);
 
 const __webpack_exports__default = __webpack_exports__.A;
