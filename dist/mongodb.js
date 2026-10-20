@@ -2849,7 +2849,7 @@ class MongoBulkWriteError extends error_1.MongoServerError {
     get matchedCount() {
         return this.result.matchedCount;
     }
-    /** Number of documents updated. */
+    /** Number of documents modified. */
     get modifiedCount() {
         return this.result.modifiedCount;
     }
