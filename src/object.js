@@ -171,19 +171,19 @@ function object(method, data) {
                                     on: auditOn,
                                     by: auditBy
                                 };
-                                data[type][i]["modified"] = {
+                                data[type][i]["updated"] = {
                                     on: auditOn,
                                     by: auditBy
                                 };
                             } else if (method === "update") {
-                                if (!data[type][i].modified)
-                                    data[type][i].modified = {
+                                if (!data[type][i].updated)
+                                    data[type][i].updated = {
                                         on: new Date(data.timeStamp),
                                         by: data.user_id || data.clientId
                                     };
                                 else
-                                    data[type][i].modified.on = new Date(
-                                        data[type][i].modified.on
+                                    data[type][i].updated.on = new Date(
+                                        data[type][i].updated.on
                                     );
 
                                 if (!Object.hasOwn(data[type][i], "organization_id"))
@@ -301,10 +301,10 @@ function object(method, data) {
                                                 );
                                                 let readDocument = document;
 
-                                                if (object && object.$storage && object.modified && object.modified.on) {
-                                                    const sourceModified = new Date(object.modified.on);
-                                                    const targetModified = document.modified?.on
-                                                        ? new Date(document.modified.on)
+                                                if (object && object.$storage && object.updated && object.updated.on) {
+                                                    const sourceModified = new Date(object.updated.on);
+                                                    const targetModified = document.updated?.on
+                                                        ? new Date(document.updated.on)
                                                         : null;
                                                     if (
                                                         !Number.isNaN(sourceModified.getTime()) &&
@@ -320,7 +320,7 @@ function object(method, data) {
                                                             "filter",
                                                             "isFilter"
                                                         ]) delete synchronizedDocument[key];
-                                                        for (const key of ["created", "modified"]) {
+                                                        for (const key of ["created", "updated"]) {
                                                             if (synchronizedDocument[key]?.on)
                                                                 synchronizedDocument[key] = {
                                                                     ...synchronizedDocument[key],

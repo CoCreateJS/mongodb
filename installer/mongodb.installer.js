@@ -1018,19 +1018,19 @@ function object(method, data) {
                   on: auditOn,
                   by: auditBy
                 };
-                data[type][i]["modified"] = {
+                data[type][i]["updated"] = {
                   on: auditOn,
                   by: auditBy
                 };
               } else if (method === "update") {
-                if (!data[type][i].modified)
-                  data[type][i].modified = {
+                if (!data[type][i].updated)
+                  data[type][i].updated = {
                     on: new Date(data.timeStamp),
                     by: data.user_id || data.clientId
                   };
                 else
-                  data[type][i].modified.on = new Date(
-                    data[type][i].modified.on
+                  data[type][i].updated.on = new Date(
+                    data[type][i].updated.on
                   );
                 if (!Object.hasOwn(data[type][i], "organization_id"))
                   data[type][i].organization_id = data.organization_id;
@@ -1124,9 +1124,9 @@ function object(method, data) {
                           (obj) => obj._id && obj._id.toString() === document._id.toString() && includesReference(obj.$database, database) && includesReference(obj.$array, array)
                         );
                         let readDocument = document;
-                        if (object2 && object2.$storage && object2.modified && object2.modified.on) {
-                          const sourceModified = new Date(object2.modified.on);
-                          const targetModified = document.modified?.on ? new Date(document.modified.on) : null;
+                        if (object2 && object2.$storage && object2.updated && object2.updated.on) {
+                          const sourceModified = new Date(object2.updated.on);
+                          const targetModified = document.updated?.on ? new Date(document.updated.on) : null;
                           if (!Number.isNaN(sourceModified.getTime()) && (!targetModified || Number.isNaN(targetModified.getTime()) || sourceModified > targetModified)) {
                             const synchronizedDocument = { ...document, ...object2 };
                             for (const key of [
@@ -1136,7 +1136,7 @@ function object(method, data) {
                               "filter",
                               "isFilter"
                             ]) delete synchronizedDocument[key];
-                            for (const key of ["created", "modified"]) {
+                            for (const key of ["created", "updated"]) {
                               if (synchronizedDocument[key]?.on)
                                 synchronizedDocument[key] = {
                                   ...synchronizedDocument[key],
@@ -2849,7 +2849,7 @@ class MongoBulkWriteError extends error_1.MongoServerError {
     get matchedCount() {
         return this.result.matchedCount;
     }
-    /** Number of documents modified. */
+    /** Number of documents updated. */
     get modifiedCount() {
         return this.result.modifiedCount;
     }
