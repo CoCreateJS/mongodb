@@ -1010,6 +1010,7 @@ function object(method, data) {
                 data[type][i] = (0,_cocreate_utils__WEBPACK_IMPORTED_MODULE_2__/* .dotNotationToObject */ .O)(
                   data[type][i]
                 );
+                delete data[type][i].modified;
                 if (!Object.hasOwn(data[type][i], "organization_id"))
                   data[type][i].organization_id = data.organization_id;
                 const auditOn = new Date(data.timeStamp);
@@ -1023,18 +1024,18 @@ function object(method, data) {
                   by: auditBy
                 };
               } else if (method === "update") {
-                if (!data[type][i].updated)
-                  data[type][i].updated = {
-                    on: new Date(data.timeStamp),
-                    by: data.user_id || data.clientId
-                  };
-                else
-                  data[type][i].updated.on = new Date(
-                    data[type][i].updated.on
-                  );
+                data[type][i].updated = {
+                  on: new Date(data.timeStamp),
+                  by: data.user_id || data.clientId
+                };
+                delete data[type][i].modified;
                 if (!Object.hasOwn(data[type][i], "organization_id"))
                   data[type][i].organization_id = data.organization_id;
                 createUpdate(update, options, data[type][i]);
+                update.$unset = {
+                  ...update.$unset || {},
+                  modified: 1
+                };
               }
               if (data[type][i]._id || method === "create" || isFilter) {
                 if (method !== "create") {
@@ -1125,9 +1126,9 @@ function object(method, data) {
                         );
                         let readDocument = document;
                         if (object2 && object2.$storage && object2.updated && object2.updated.on) {
-                          const sourceModified = new Date(object2.updated.on);
-                          const targetModified = document.updated?.on ? new Date(document.updated.on) : null;
-                          if (!Number.isNaN(sourceModified.getTime()) && (!targetModified || Number.isNaN(targetModified.getTime()) || sourceModified > targetModified)) {
+                          const sourceUpdated = new Date(object2.updated.on);
+                          const targetUpdated = document.updated?.on ? new Date(document.updated.on) : null;
+                          if (!Number.isNaN(sourceUpdated.getTime()) && (!targetUpdated || Number.isNaN(targetUpdated.getTime()) || sourceUpdated > targetUpdated)) {
                             const synchronizedDocument = { ...document, ...object2 };
                             for (const key of [
                               "$storage",
