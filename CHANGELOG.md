@@ -338,7 +338,7 @@
 ### Features
 
 * morph data[type] so the object can be synced across multiple storage, database, arra ([8d29c0a](https://github.com/CoCreate-app/CoCreate-mongodb/commit/8d29c0a7cc160654e04e0e6266f82906e772f57f))
-* read.object will compare modified.on and update db ([b8b2c74](https://github.com/CoCreate-app/CoCreate-mongodb/commit/b8b2c74e2abbf568eda14c1328961781395d7c5c))
+* read.object will compare updated.on and update db ([b8b2c74](https://github.com/CoCreate-app/CoCreate-mongodb/commit/b8b2c74e2abbf568eda14c1328961781395d7c5c))
 
 ## [1.10.6](https://github.com/CoCreate-app/CoCreate-mongodb/compare/v1.10.5...v1.10.6) (2023-10-25)
 
