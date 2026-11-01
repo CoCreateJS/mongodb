@@ -25,9 +25,11 @@ import {
 
 /**
  * Isolated CRUD Processor for Array/Collection Management.
- * 
+ *
  * @param {string} method - Operation targeting database collections (read, create, update, delete)
  * @param {Object} data - Context query details containing database and collection matrices
+ * @private
+ * @environment server
  */
 function array(method, data) {
     const storageName = data.storageConfig?.name;

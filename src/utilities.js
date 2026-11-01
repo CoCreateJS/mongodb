@@ -23,6 +23,8 @@ const organizations = {};
  * Dynamically resolves or caches a long-lived MongoDB Client instance using modern driver syntax.
  * @param {Object} data - Context parameters containing credentials and storage URL
  * @returns {Promise<MongoClient>} Resolved MongoDB Client connection
+ * @private
+ * @environment server
  */
 async function dbClient(data) {
     const storageUrl = data.storageConfig?.connectionString || data.storageConfig?.url;

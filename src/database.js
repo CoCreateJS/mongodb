@@ -24,9 +24,11 @@ import {
 
 /**
  * Isolated CRUD Processor for Database Management.
- * 
+ *
  * @param {string} method - Operation targeting database layers (read, delete)
  * @param {Object} data - Context query details and transactional metrics
+ * @private
+ * @environment server
  */
 function database(method, data) {
     const storageName = data.storageConfig?.name;
