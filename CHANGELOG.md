@@ -1,3 +1,49 @@
+# [2.0.0](https://github.com/CoCreateJS/mongodb/compare/v1.25.2...v2.0.0) (2026-11-02)
+
+
+### Bug Fixes
+
+* add Deno specific entries to .gitignore ([feedb3c](https://github.com/CoCreateJS/mongodb/commit/feedb3cec97828440886aa713d58dfb6ed991986))
+* allow disk-backed sorting and normalize search values ([aa83a8e](https://github.com/CoCreateJS/mongodb/commit/aa83a8e9cfc41115fde461ee78f738160ac396b7))
+* apply scoped pagination to mongodb reads ([5868b70](https://github.com/CoCreateJS/mongodb/commit/5868b70000a32b76d0e414374517e170ecb25b8f))
+* bump [@cocreate](https://github.com/cocreate) dependencies ([c090a1c](https://github.com/CoCreateJS/mongodb/commit/c090a1cae3cfa49f935ffbb2a29297ecfe69c6eb))
+* bump versions ([745fcca](https://github.com/CoCreateJS/mongodb/commit/745fcca646e67fc58774132efb58d66c199a5d7b))
+* bump versions ([684f273](https://github.com/CoCreateJS/mongodb/commit/684f273ff24b7d1dd953dda196094ea3635cc1ce))
+* bumped dependencies ([80f5ac6](https://github.com/CoCreateJS/mongodb/commit/80f5ac655b4f2230b57d8670fb529a9189cc3542))
+* preserve array semantics when unsetting fields ([ff4efe9](https://github.com/CoCreateJS/mongodb/commit/ff4efe97f28118d4cd791acf73d93013f02ee99a))
+* preserve mongodb runtime in production bundle ([5f458b3](https://github.com/CoCreateJS/mongodb/commit/5f458b3831dbd05e9653f84e1ac8fd7cc6a0f83a))
+* reconcile records by database and array ([2b63a35](https://github.com/CoCreateJS/mongodb/commit/2b63a35b6a32f4c715c0029ba2d536f6f1e7a1d4))
+* remove trailing slash from node_modules entry in .gitignore ([c5f6600](https://github.com/CoCreateJS/mongodb/commit/c5f6600fa4dad41011ca73eebfbcb2411d8ebfef))
+* replace legacy filter field ([6877a02](https://github.com/CoCreateJS/mongodb/commit/6877a02f895a4c114a37c30858fcccb4d78134f9))
+* separate mongodb runtime and installer bundles ([fa24dd4](https://github.com/CoCreateJS/mongodb/commit/fa24dd4072f7f42e76a87abe68cc57f05e546e59))
+* update exports path for dist in package.json ([982deeb](https://github.com/CoCreateJS/mongodb/commit/982deeb20c477c978f2ed90c133723feba3dd978))
+* update git url ([aa8876d](https://github.com/CoCreateJS/mongodb/commit/aa8876dc8a3191c14c5a9a9252663fffede0f777))
+* update GitHub Actions to use latest versions and sync package.json description ([c5ce217](https://github.com/CoCreateJS/mongodb/commit/c5ce217dd16dfdaa92142b339f34f2102404d802))
+
+
+### chore
+
+* record package identity migration as breaking ([3458c39](https://github.com/CoCreateJS/mongodb/commit/3458c395db593c5abb78b33564ebd7ace373222c))
+
+
+### Features
+
+* add SelfCleaningBundlePlugin for Base64 payload extraction and V8 memory management ([61c9a21](https://github.com/CoCreateJS/mongodb/commit/61c9a210a5d57b438c8bce071632dab36162282d))
+* add storage bundler and webpack configuration for MongoDB adapter ([3b4ba72](https://github.com/CoCreateJS/mongodb/commit/3b4ba728a1b4bf1b201ab853266a395e1b663724))
+* aded dist ([3b587b9](https://github.com/CoCreateJS/mongodb/commit/3b587b90fb7465b530fdc54c0af2aa3c6bcee463))
+* bump all dependencies ([d8f77f3](https://github.com/CoCreateJS/mongodb/commit/d8f77f3434b2ad77cf4c8274652dd3627904a97f))
+* bumped all dependency versions ([da87aec](https://github.com/CoCreateJS/mongodb/commit/da87aec192a6681d0d7aa77491a69a9e9ba93a03))
+* dist build ([1b1bf40](https://github.com/CoCreateJS/mongodb/commit/1b1bf405425d5d012213a06aa092e07f962f319b))
+* enhance package exports and webpack configuration ([c32a4e0](https://github.com/CoCreateJS/mongodb/commit/c32a4e00f07535d3753df98d41cd653637923688))
+* enhance webpack configuration for improved bundling and dependency management ([c49c43b](https://github.com/CoCreateJS/mongodb/commit/c49c43b591754bb7b5b24a4b859d5203e1dbeed6))
+* implement error handling in MongoDB isolate and enhance database connection logic ([0bf6033](https://github.com/CoCreateJS/mongodb/commit/0bf60331a0ede11a3f719d883903ecf231ed52ec))
+* integrate SelfCleaningBundlePlugin into webpack configuration and remove installer config ([ca5fde9](https://github.com/CoCreateJS/mongodb/commit/ca5fde90f83641eccd9bd1eda4999376056db926))
+
+
+### BREAKING CHANGES
+
+* Consumers must install @cocreate/mongodb and use the CoCreateJS repository identity; previous package and repository identities are no longer supported.
+
 ## [1.25.2](https://github.com/CoCreateJS/CoCreate-mongodb/compare/v1.25.1...v1.25.2) (2026-07-19)
 
 
