@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/CoCreateJS/mongodb/compare/v2.0.0...v2.0.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* upgrade CoCreate dependencies to v2 ([66006e4](https://github.com/CoCreateJS/mongodb/commit/66006e4b2556026b14d562144a65b852b66ee84d))
+
 # [2.0.0](https://github.com/CoCreateJS/mongodb/compare/v1.25.2...v2.0.0) (2026-11-02)
 
 
