@@ -47,10 +47,10 @@
     "./dist": "./dist/mongodb.js"
   },
   "devDependencies": {
-    "@cocreate/webpack": "^2.0.0"
+    "@cocreate/webpack": "^2.0.1"
   },
   "dependencies": {
-    "@cocreate/utils": "^2.0.0",
+    "@cocreate/utils": "^2.0.2",
     "mongodb": "^7.5.0"
   }
 }
