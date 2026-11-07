@@ -1,6 +1,6 @@
 {
   "name": "@cocreate/mongodb",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "description": "Lightweight, real-time MongoDB CRUD wrapper and multi-tenant state routing client for the collaborative CoCreate ecosystem.",
   "keywords": [
     "mongodb",
